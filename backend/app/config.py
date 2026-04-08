@@ -1,16 +1,19 @@
-from pydantic import Field
+import json
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=None,  # Don't read from .env file, use environment variables only
+    )
 
     # App
-    app_name: str = "NelloreRuchullu API"
-    version: str = "1.0.0"
-    environment: str = "development"
-    debug: bool = False
-    api_prefix: str = "/api/v1"
+    app_name: str = Field(default="NelloreRuchullu API", alias="APP_NAME")
+    version: str = Field(default="1.0.0", alias="VERSION")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+    debug: bool = Field(default=False, alias="DEBUG")
+    api_prefix: str = Field(default="/api/v1")
 
     # Database
     database_url: str = Field(
@@ -54,6 +57,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000"]
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # Fallback: split by comma
+                return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
 
 settings = Settings()

@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import MenuPageContent from "./MenuPageContent";
+import { PageSkeleton } from "@/components/SkeletonLoader";
 
 export default function MenuPage() {
   return (
-    <Suspense fallback={
-      <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"></div></div>
-    }>
+    <Suspense fallback={<PageSkeleton />}>
       <MenuPageContent />
     </Suspense>
   );

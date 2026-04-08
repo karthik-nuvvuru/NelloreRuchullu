@@ -75,3 +75,7 @@ class Order(Base):
     items = relationship("OrderItem", back_populates="order", lazy="selectin")
     payment = relationship("Payment", back_populates="order", uselist=False, lazy="selectin")
     delivery_record = relationship("Delivery", back_populates="order", uselist=False, lazy="selectin")
+
+    @property
+    def item_count(self) -> int:
+        return len(self.items)

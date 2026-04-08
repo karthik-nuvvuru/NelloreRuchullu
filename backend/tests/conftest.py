@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -52,8 +52,8 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 def create_mock_redis():
     """Create a mock Redis client for testing."""
     mock = AsyncMock()
-    mock.exists.return_value = False
-    mock.consume_rate_limit.return_value = True
+    mock.exists = AsyncMock(return_value=False)
+    mock.consume_rate_limit = AsyncMock(return_value=True)
     mock.blacklist_token = AsyncMock()
     mock.publish = AsyncMock()
     mock.cache_get = AsyncMock(return_value=None)
@@ -62,6 +62,22 @@ def create_mock_redis():
     mock.get = AsyncMock(return_value=None)
     mock.set = AsyncMock()
     mock.delete = AsyncMock()
+    mock.setex = AsyncMock()
+    mock.zadd = AsyncMock()
+    mock.zremrangebyscore = AsyncMock()
+    mock.zcard = AsyncMock()
+    mock.expire = AsyncMock()
+    mock.zrange = AsyncMock(return_value=[])
+    # pipeline() is called without await, returns a pipeline object
+    # whose methods (zremrangebyscore, zcard, zadd, expire) are also called without await
+    # only execute() is awaited
+    mock.pipeline = MagicMock(return_value=MagicMock(
+        zremrangebyscore=MagicMock(),
+        zcard=MagicMock(),
+        zadd=MagicMock(),
+        expire=MagicMock(),
+        execute=AsyncMock(return_value=[0, 0, 0, 0, 0]),
+    ))
     return mock
 
 
@@ -72,12 +88,18 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # Patch get_redis_client to return our mock
+    # Create mock redis client
     mock_redis = create_mock_redis()
-    with patch('app.dependencies.get_redis_client', return_value=mock_redis):
+
+    # Patch redis.asyncio.from_url to return our mock directly (not a coroutine)
+    with patch('redis.asyncio.from_url', return_value=mock_redis):
+        # Clear the service cache to ensure fresh instances
+        from app import dependencies
+        dependencies._service_cache.clear()
+
         async with AsyncClient(
             transport=ASGITransport(app=app),
-            base_url="http://test/api/v1",
+            base_url="http://test",
         ) as test_client:
             yield test_client
 

@@ -50,52 +50,8 @@ async def create_order(
     }
 
 
-@router.get("/{order_id}", response_model=dict)
-async def get_order(
-    order_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: TokenPayload = Depends(get_current_user),
-    order_service: OrderService = Depends(get_order_service),
-):
-    if current_user.role in ("admin", "vendor"):
-        order = await order_service.get_admin_order(db, order_id)
-    else:
-        order = await order_service.get_order(db, order_id, current_user.sub)
-
-    items_data = []
-    for item in order.items:
-        items_data.append({
-            "id": str(item.id),
-            "name": item.name,
-            "quantity": item.quantity,
-            "unit_price": float(item.unit_price),
-            "total_price": float(item.total_price),
-            "special_instructions": item.special_instructions,
-        })
-
-    delivery_info = {}
-    if hasattr(order, 'delivery_record') and order.delivery_record:
-        delivery_info = {
-            "status": order.delivery_record.status.value,
-        }
-
-    return {
-        "id": str(order.id),
-        "order_number": order.order_number,
-        "status": order.status.value,
-        "subtotal": order.subtotal,
-        "tax_amount": order.tax_amount,
-        "discount_amount": order.discount_amount,
-        "total_amount": order.total_amount,
-        "delivery_fee": order.delivery_fee,
-        "notes": order.notes,
-        "coupon_code": order.coupon_code,
-        "items": items_data,
-        "delivery": delivery_info,
-        "created_at": order.created_at.isoformat(),
-        "updated_at": order.updated_at.isoformat(),
-    }
-
+# IMPORTANT: Static routes must be defined BEFORE parameterized routes
+# Otherwise /my would match /{order_id} with order_id="my" and fail UUID validation
 
 @router.get("/my", response_model=dict)
 async def list_my_orders(
@@ -145,6 +101,53 @@ async def list_all_orders(
             "total": total, "page": page, "per_page": per_page,
             "total_pages": total_pages,
         },
+    }
+
+
+@router.get("/{order_id}", response_model=dict)
+async def get_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user),
+    order_service: OrderService = Depends(get_order_service),
+):
+    if current_user.role in ("admin", "vendor"):
+        order = await order_service.get_admin_order(db, order_id)
+    else:
+        order = await order_service.get_order(db, order_id, current_user.sub)
+
+    items_data = []
+    for item in order.items:
+        items_data.append({
+            "id": str(item.id),
+            "name": item.name,
+            "quantity": item.quantity,
+            "unit_price": float(item.unit_price),
+            "total_price": float(item.total_price),
+            "special_instructions": item.special_instructions,
+        })
+
+    delivery_info = {}
+    if hasattr(order, 'delivery_record') and order.delivery_record:
+        delivery_info = {
+            "status": order.delivery_record.status.value,
+        }
+
+    return {
+        "id": str(order.id),
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "subtotal": order.subtotal,
+        "tax_amount": order.tax_amount,
+        "discount_amount": order.discount_amount,
+        "total_amount": order.total_amount,
+        "delivery_fee": order.delivery_fee,
+        "notes": order.notes,
+        "coupon_code": order.coupon_code,
+        "items": items_data,
+        "delivery": delivery_info,
+        "created_at": order.created_at.isoformat(),
+        "updated_at": order.updated_at.isoformat(),
     }
 
 

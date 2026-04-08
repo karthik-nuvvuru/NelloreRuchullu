@@ -8,7 +8,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_register_success(client: AsyncClient):
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "test@example.com",
             "password": "TestPass123!",
@@ -28,7 +28,7 @@ async def test_register_success(client: AsyncClient):
 async def test_register_duplicate(client: AsyncClient):
     # First register
     await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "dup@example.com",
             "password": "TestPass123!",
@@ -38,7 +38,7 @@ async def test_register_duplicate(client: AsyncClient):
     )
     # Second attempt should fail
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "dup@example.com",
             "password": "TestPass123!",
@@ -52,7 +52,7 @@ async def test_register_duplicate(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_register_invalid_email(client: AsyncClient):
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "invalid-email",
             "password": "TestPass123!",
@@ -69,7 +69,7 @@ async def test_login_success(client: AsyncClient):
     password = "TestPass123!"
 
     await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": email,
             "password": password,
@@ -79,7 +79,7 @@ async def test_login_success(client: AsyncClient):
     )
 
     response = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={
             "email_or_phone": email,
             "password": password,
@@ -95,7 +95,7 @@ async def test_login_success(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient):
     response = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={
             "email_or_phone": "nouser@example.com",
             "password": "WrongPass123!",
@@ -108,7 +108,7 @@ async def test_login_wrong_password(client: AsyncClient):
 async def test_refresh_token(client: AsyncClient):
     # Register and get tokens
     resp = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "refresh@example.com",
             "password": "TestPass123!",
@@ -120,7 +120,7 @@ async def test_refresh_token(client: AsyncClient):
     refresh_token = data["refresh_token"]
 
     response = await client.post(
-        "/auth/refresh",
+        "/api/v1/auth/refresh",
         json={"refresh_token": refresh_token}
     )
     assert response.status_code == 200
@@ -132,7 +132,7 @@ async def test_refresh_token(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_send_otp(client: AsyncClient):
     response = await client.post(
-        "/auth/otp/send",
+        "/api/v1/auth/otp/send",
         json={"phone": "+919876543210"}
     )
     # Should succeed even in mock mode

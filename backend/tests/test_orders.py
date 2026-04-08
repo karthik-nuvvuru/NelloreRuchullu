@@ -8,7 +8,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_empty_cart(client: AsyncClient):
     resp = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "order@example.com",
             "password": "OrderPass123!",
@@ -19,7 +19,7 @@ async def test_empty_cart(client: AsyncClient):
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    response = await client.get("/cart", headers=headers)
+    response = await client.get("/api/v1/cart", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["items"] == []
@@ -29,7 +29,7 @@ async def test_empty_cart(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_my_orders_empty(client: AsyncClient):
     resp = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "orders2@example.com",
             "password": "OrderPass123!",
@@ -40,7 +40,7 @@ async def test_get_my_orders_empty(client: AsyncClient):
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    response = await client.get("/orders/my", headers=headers)
+    response = await client.get("/api/v1/orders/my", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["items"] == []
@@ -49,7 +49,7 @@ async def test_get_my_orders_empty(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_order_empty_cart_fails(client: AsyncClient):
     resp = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "order3@example.com",
             "password": "OrderPass123!",
@@ -61,7 +61,7 @@ async def test_create_order_empty_cart_fails(client: AsyncClient):
     headers = {"Authorization": f"Bearer {token}"}
 
     response = await client.post(
-        "/orders",
+        "/api/v1/orders",
         json={
             "address_id": "00000000-0000-0000-0000-000000000001",
             "payment_method": "cod",

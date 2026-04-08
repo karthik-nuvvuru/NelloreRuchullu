@@ -141,7 +141,7 @@ def require_role(*roles: str):
     def _check_role(current_user: TokenPayload = Depends(get_current_user)):
         if current_user.role not in roles:
             raise HTTPException(
-                status_code=status.HTTP_403_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Role {current_user.role!r} is not authorized. Required: {', '.join(roles)}",
             )
         return current_user

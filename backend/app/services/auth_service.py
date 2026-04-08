@@ -301,12 +301,14 @@ class AuthService:
         token_record.is_revoked = True
         token_record.is_active = False
 
+        # Convert string user_id to UUID (payload["sub"] is a string from JWT)
+        user_uuid = UUID(payload["sub"])
         new_refresh_token, new_jti = create_refresh_token(
             user_id=payload["sub"], device_id=payload.get("device_id")
         )
 
         new_refresh_record = RefreshToken(
-            user_id=payload["sub"],
+            user_id=user_uuid,
             token=new_refresh_token,
             jti=new_jti,
             device_id=payload.get("device_id"),

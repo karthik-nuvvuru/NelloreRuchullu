@@ -49,9 +49,10 @@ class OrderService:
         payment_method: str, notes: str | None = None,
         coupon_code: str | None = None
     ) -> Order:
+        user_uuid = UUID(user_id)
         cart_result = await db.execute(
             select(Cart).where(
-                Cart.user_id == user_id, Cart.is_active == True
+                Cart.user_id == user_uuid, Cart.is_active == True
             ).options(selectinload(Cart.items))
         )
         cart = cart_result.scalar_one_or_none()
@@ -100,7 +101,7 @@ class OrderService:
 
         payment_method_enum = PaymentMethod(payment_method)
         order = Order(
-            user_id=user_id,
+            user_id=user_uuid,
             order_number=self._generate_order_number(),
             subtotal=float(subtotal),
             tax_amount=float(tax),
@@ -120,7 +121,7 @@ class OrderService:
 
         payment = Payment(
             order_id=order.id,
-            user_id=user_id,
+            user_id=user_uuid,
             amount=float(total),
             payment_method=payment_method_enum,
             status=PaymentStatus.PENDING
@@ -138,7 +139,7 @@ class OrderService:
 
         # Clear cart
         cart.is_active = False
-        new_cart = Cart(user_id=user_id, is_active=True)
+        new_cart = Cart(user_id=user_uuid, is_active=True)
         db.add(new_cart)
 
         await db.flush()
@@ -159,11 +160,12 @@ class OrderService:
         return order
 
     async def get_order(self, db, order_id: UUID, user_id: str) -> Order:
+        user_uuid = UUID(user_id)
         result = await db.execute(
             select(Order).where(
                 Order.id == order_id,
-                Order.user_id == user_id,
-                Order.deleted_at.is_(None),
+                Order.user_id == user_uuid,
+                Order.cancelled_at.is_(None),
             ).options(
                 selectinload(Order.items),
                 selectinload(Order.delivery_record)
@@ -191,7 +193,8 @@ class OrderService:
         self, db, user_id: str, page: int = 1, per_page: int = 20,
         status_filter: str | None = None
     ) -> tuple[list[Order], int]:
-        filters = [Order.user_id == user_id, Order.deleted_at.is_(None)]
+        user_uuid = UUID(user_id)
+        filters = [Order.user_id == user_uuid, Order.cancelled_at.is_(None)]
         if status_filter:
             filters.append(Order.status == OrderStatus(status_filter))
 
@@ -206,6 +209,7 @@ class OrderService:
             .order_by(Order.created_at.desc())
             .offset(offset)
             .limit(per_page)
+            .options(selectinload(Order.items))
         )
         result = await db.execute(query)
         return list(result.scalars().all()), int(total)
@@ -216,7 +220,7 @@ class OrderService:
         date_from: str | None = None,
         date_to: str | None = None,
     ) -> tuple[list[Order], int]:
-        filters = [Order.deleted_at.is_(None)]
+        filters = [Order.cancelled_at.is_(None)]
         if status_filter:
             filters.append(Order.status == OrderStatus(status_filter))
 
@@ -291,9 +295,10 @@ class OrderService:
         self, db, order_id: UUID, user_id: str,
         reason: str | None = None
     ) -> Order:
+        user_uuid = UUID(user_id)
         result = await db.execute(
             select(Order).where(
-                Order.id == order_id, Order.user_id == user_id
+                Order.id == order_id, Order.user_id == user_uuid
             )
         )
         order = result.scalar_one_or_none()

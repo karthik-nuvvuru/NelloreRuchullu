@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.exceptions import (
@@ -88,6 +90,7 @@ from app.routes.reviews import router as reviews_router
 from app.routes.users import router as users_router
 from app.routes.analytics import router as analytics_router
 from app.routes.ws import router as ws_router
+from app.routes.upload import router as upload_router
 
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(cart_router, prefix=settings.api_prefix)
@@ -100,6 +103,12 @@ app.include_router(reviews_router, prefix=settings.api_prefix)
 app.include_router(users_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(ws_router, prefix=settings.api_prefix)
+app.include_router(upload_router, prefix=settings.api_prefix)
+
+# Mount uploads directory for serving static files
+uploads_dir = Path(__file__).parent.parent / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 
 @app.get("/health", tags=["Health"])

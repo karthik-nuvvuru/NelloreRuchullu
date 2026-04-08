@@ -110,9 +110,10 @@ export function useOrderWebSocket(orderId: string) {
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | null>(null);
   const [eta, setEta] = useState<number | null>(null);
 
+  // Backend route is at /api/v1/ws/ws/orders/{id} (double ws due to router prefix + path prefix)
   const wsUrl =
     orderId && typeof window !== 'undefined'
-      ? `ws://${window.location.hostname}:8000/ws/orders/${orderId}`
+      ? `ws://${window.location.hostname}:8000/api/v1/ws/ws/orders/${orderId}`
       : null;
 
   const handleMessage = useCallback(

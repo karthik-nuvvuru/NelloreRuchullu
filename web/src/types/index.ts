@@ -24,19 +24,53 @@ export interface Address {
 export interface MenuItem {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
-  category: string;
-  image?: string;
-  isVegetarian: boolean;
-  isAvailable: boolean;
+  category?: string;
+  category_name?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+  isVegetarian?: boolean;
+  is_vegetarian?: boolean;
+  isAvailable?: boolean;
+  is_available?: boolean;
   spiceLevel?: 'none' | 'mild' | 'medium' | 'hot' | 'extra-hot';
   rating?: number;
   reviewCount?: number;
   prepTime?: number;
+  prep_time?: number;
   tags?: string[];
   createdAt?: string;
+  created_at?: string;
   updatedAt?: string;
+  updated_at?: string;
+}
+
+// Helper to normalize API response to consistent format
+export function normalizeMenuItem(item: any): MenuItem {
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description || null,
+    price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
+    category: item.category_name || item.category || '',
+    category_name: item.category_name || null,
+    image: item.image_url || item.image || null,
+    image_url: item.image_url || null,
+    isVegetarian: item.is_vegetarian ?? item.isVegetarian ?? false,
+    is_vegetarian: item.is_vegetarian ?? false,
+    isAvailable: item.is_available ?? item.isAvailable ?? true,
+    is_available: item.is_available ?? true,
+    spiceLevel: item.spice_level || item.spiceLevel,
+    rating: item.rating,
+    reviewCount: item.review_count || item.reviewCount,
+    prepTime: item.prep_time || item.prepTime,
+    tags: item.tags,
+    createdAt: item.created_at || item.createdAt,
+    created_at: item.created_at,
+    updatedAt: item.updated_at || item.updatedAt,
+    updated_at: item.updated_at,
+  };
 }
 
 export interface CartItem {

@@ -45,25 +45,18 @@ export function useApiQuery<T>(
   return { data, isLoading, error, refetch };
 }
 
+// This hook is deprecated - use direct apiFetch calls instead
+// Kept for backwards compatibility but mutate does not make API calls
 export function useApiMutation<T, P = void>() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [data, setData] = useState<T | null>(null);
 
   const mutate = useCallback(
-    async (payload: P): Promise<T | null> => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const result = await (payload as any);
-        setData(result);
-        return result as unknown as T;
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
+    async (_payload: P): Promise<T | null> => {
+      setIsLoading(false);
+      setError(new Error('useApiMutation is deprecated - use apiFetch directly'));
+      return null;
     },
     [],
   );

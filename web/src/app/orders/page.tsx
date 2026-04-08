@@ -26,7 +26,7 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!token) { router.push("/auth/login"); return; }
     fetch(`${API_BASE}/orders/my`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => setOrders(d.items || [])).finally(() => setLoading(false));
+      .then((r) => r.json()).then((d) => setOrders(d.orders || d.items || [])).finally(() => setLoading(false));
   }, [token, router]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" /></div>;

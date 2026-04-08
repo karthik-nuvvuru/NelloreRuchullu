@@ -19,7 +19,9 @@ export default function OrderTrackingPage() {
     fetch(`${API_BASE}/orders/${params.id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json()).then((d) => { setOrder(d); setWsStatus(d.status); }).finally(() => setLoading(false));
 
-    const ws = new WebSocket(`${API_BASE.replace("http", "ws")}/ws/orders/${params.id}?token=${token}`);
+    // Backend route is at /api/v1/ws/ws/orders/{id} (double ws due to router prefix + path prefix)
+    const wsUrl = `${API_BASE.replace("http", "ws")}/ws/ws/orders/${params.id}?token=${token}`;
+    const ws = new WebSocket(wsUrl);
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "order_update" && data.status) {

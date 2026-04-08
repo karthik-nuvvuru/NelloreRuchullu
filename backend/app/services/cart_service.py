@@ -25,14 +25,15 @@ class CartService:
         self.redis = redis_client
 
     async def get_or_create_cart(self, db, user_id: str) -> Cart:
+        user_uuid = UUID(user_id)
         result = await db.execute(
             select(Cart).where(
-                Cart.user_id == user_id, Cart.is_active == True
+                Cart.user_id == user_uuid, Cart.is_active == True
             ).options(selectinload(Cart.items))
         )
         cart = result.scalar_one_or_none()
         if not cart:
-            cart = Cart(user_id=user_id, is_active=True)
+            cart = Cart(user_id=user_uuid, is_active=True)
             db.add(cart)
             await db.flush()
             await db.refresh(cart, ["id"])

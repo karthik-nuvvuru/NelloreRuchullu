@@ -28,7 +28,7 @@ export default function LoginPage() {
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Login failed"); }
       const data = await res.json();
-      setToken(data.access_token, data.refresh_token);
+      setToken(data.token || data.access_token, data.refresh_token);
       router.push("/menu");
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
@@ -84,42 +84,44 @@ export default function LoginPage() {
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         {mode === "email" ? (
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleEmailLogin} className="space-y-4" data-testid="login-form">
             <div>
               <label className="block text-sm font-medium mb-1">Email or Phone</label>
               <input type="text" value={emailOrPhone} onChange={(e) => setEmailOrPhone(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="email@example.com or +91..." required />
+                placeholder="email@example.com or +91..." required data-testid="input-email-or-phone" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Password</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Enter password" required />
+                placeholder="Enter password" required data-testid="input-password" />
             </div>
             <button type="submit" disabled={loading}
-              className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50">
+              className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50"
+              data-testid="button-submit">
               {loading ? "Logging in..." : "Login"}
             </button>
           </form>
         ) : (
-          <form onSubmit={otpSent ? handleOtpLogin : handleSendOtp} className="space-y-4">
+          <form onSubmit={otpSent ? handleOtpLogin : handleSendOtp} className="space-y-4" data-testid="otp-form">
             <div>
               <label className="block text-sm font-medium mb-1">Phone Number</label>
               <input type="tel" value={otpPhone} onChange={(e) => setOtpPhone(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="+919999999999" required disabled={otpSent} />
+                placeholder="+919999999999" required disabled={otpSent} data-testid="input-phone" />
             </div>
             {otpSent && (
               <div>
                 <label className="block text-sm font-medium mb-1">OTP Code</label>
                 <input type="text" value={otpCode} onChange={(e) => setOtpCode(e.target.value)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="Enter 6-digit OTP" required maxLength={6} />
+                  placeholder="Enter 6-digit OTP" required maxLength={6} data-testid="input-otp" />
               </div>
             )}
             <button type="submit" disabled={loading}
-              className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50">
+              className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50"
+              data-testid="button-submit">
               {loading ? "Sending..." : otpSent ? "Verify & Login" : "Send OTP"}
             </button>
           </form>

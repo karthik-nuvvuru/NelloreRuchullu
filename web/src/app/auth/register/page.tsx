@@ -24,7 +24,7 @@ export default function RegisterPage() {
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Registration failed"); }
       const data = await res.json();
-      setToken(data.access_token, data.refresh_token);
+      setToken(data.token || data.access_token, data.refresh_token);
       router.push("/menu");
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
@@ -37,38 +37,42 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <h1 className="text-3xl font-bold text-center mb-8">Create Account</h1>
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-testid="register-form">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">First Name</label>
               <input type="text" value={form.first_name} onChange={update("first_name")}
-                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" required />
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="John" required data-testid="input-first-name" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Last Name</label>
               <input type="text" value={form.last_name} onChange={update("last_name")}
-                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" required />
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                placeholder="Doe" required data-testid="input-last-name" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input type="email" value={form.email} onChange={update("email")}
-              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500" required />
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              placeholder="john@example.com" required data-testid="input-email" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Phone (optional)</label>
             <input type="tel" value={form.phone} onChange={update("phone")}
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="+919999999999" />
+              placeholder="+919999999999" data-testid="input-phone" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
             <input type="password" value={form.password} onChange={update("password")}
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              placeholder="Min 8 characters" required minLength={8} />
+              placeholder="Min 8 characters" required minLength={8} data-testid="input-password" />
           </div>
           <button type="submit" disabled={loading}
-            className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50">
+            className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50"
+            data-testid="button-submit">
             {loading ? "Creating account..." : "Sign Up"}
           </button>
         </form>

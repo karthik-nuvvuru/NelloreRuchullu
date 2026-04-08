@@ -3,9 +3,8 @@ import { test, expect } from '../helpers/fixtures';
 test.describe('06 - Admin Dashboard', () => {
   test('dashboard page requires auth', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.waitForTimeout(1000);
-
-    // May redirect to login if not authenticated
+    // Wait for redirect or content
+    await page.waitForURL(/\/(dashboard|auth\/login)/, { timeout: 5000 }).catch(() => {});
     const url = page.url();
     const isDashboard = url.includes('/dashboard');
     const isLogin = url.includes('/auth/login');

@@ -1,16 +1,16 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useAuthStore, useCartStore } from '@/lib/store';
 import { apiFetch } from '@/lib/api';
 import type { MenuItem } from '@/types';
 
 export function useCart() {
   const store = useCartStore();
-
   const { isAuthenticated } = useAuthStore();
 
-  const addItemToCart = async (menuItem: MenuItem, quantity: number = 1, specialInstructions?: string) => {
-    // Add to local store first
+  const addItemToCart = useCallback(async (menuItem: MenuItem, quantity: number = 1, specialInstructions?: string) => {
+    // Add to local store first (Zustand handles localStorage persistence)
     store.addItem(menuItem, quantity, specialInstructions);
 
     // Sync to backend if authenticated
@@ -28,35 +28,43 @@ export function useCart() {
         console.error('Failed to sync cart to backend:', error);
       }
     }
-  };
+  }, [isAuthenticated, store]);
 
-  const removeItemFromCart = async (menuItemId: string) => {
-    const localItem = store.items.find(i => i.id === menuItemId);
+  const removeItemFromCart = useCallback(async (menuItemId: string) => {
     store.removeItem(menuItemId);
 
     // Sync to backend if authenticated
-    if (isAuthenticated && localItem) {
+    if (isAuthenticated) {
       try {
-        await apiFetch('/cart', { method: 'DELETE' });
+        // Backend expects DELETE /cart/items/{item_id}
+        await apiFetch(`/cart/items/${menuItemId}`, { method: 'DELETE' });
       } catch (error) {
         console.error('Failed to sync cart removal to backend:', error);
       }
     }
-  };
+  }, [isAuthenticated, store]);
 
-  const updateItemQuantity = async (menuItemId: string, quantity: number) => {
-    store.updateQuantity(menuItemId, quantity);
+  const updateItemQuantity = useCallback(async (menuItemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      store.removeItem(menuItemId);
+    } else {
+      store.updateQuantity(menuItemId, quantity);
+    }
 
     if (isAuthenticated) {
       try {
-        await apiFetch('/cart', { method: 'DELETE' });
+        // Use PUT to update cart item quantity
+        await apiFetch(`/cart/items/${menuItemId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ quantity }),
+        });
       } catch (error) {
         console.error('Failed to sync cart update to backend:', error);
       }
     }
-  };
+  }, [isAuthenticated, store]);
 
-  const clearCartAndSync = async () => {
+  const clearCartAndSync = useCallback(async () => {
     store.clearCart();
 
     if (isAuthenticated) {
@@ -66,9 +74,9 @@ export function useCart() {
         console.error('Failed to sync cart clear to backend:', error);
       }
     }
-  };
+  }, [isAuthenticated, store]);
 
-  const syncCartFromBackend = async () => {
+  const syncCartFromBackend = useCallback(async () => {
     if (!isAuthenticated) return;
 
     try {
@@ -82,25 +90,22 @@ export function useCart() {
         }>;
       }>('/cart');
 
-      if (cartData.items && cartData.items.length > 0) {
-        const backendItems = cartData.items.map(item => ({
-          id: item.menu_item_id,
-          name: item.item_name,
-          price: item.price,
-          quantity: item.quantity,
-        }));
-
-        const currentStore = useCartStore.getState();
-        backendItems.forEach(item => {
-          if (!currentStore.items.find(i => i.id === item.id)) {
-            currentStore.addItem({ id: item.id, name: item.name, price: item.price, quantity: item.quantity } as any);
-          }
+      if (cartData?.items && cartData.items.length > 0) {
+        // Clear local cart and rebuild from backend
+        store.clearCart();
+        cartData.items.forEach(item => {
+          store.addItem({
+            id: item.menu_item_id,
+            name: item.item_name,
+            price: item.price,
+            quantity: item.quantity,
+          } as any);
         });
       }
     } catch (error) {
       console.error('Failed to sync cart from backend:', error);
     }
-  };
+  }, [isAuthenticated, store]);
 
   return {
     items: store.items,
@@ -110,7 +115,7 @@ export function useCart() {
     incrementQuantity: store.incrementQuantity,
     decrementQuantity: store.decrementQuantity,
     clearCart: clearCartAndSync,
-    total: store.total(), // This is subtotal only, UI adds delivery fee
+    total: store.total(),
     subtotal: store.subtotal(),
     tax: store.tax(),
     cartTotal: store.total(),

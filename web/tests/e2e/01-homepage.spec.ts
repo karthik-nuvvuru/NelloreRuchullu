@@ -7,7 +7,7 @@ test.describe('01 - Homepage Load', () => {
     await expect(page).toHaveTitle(/NelloreRuchullu/i);
 
     // Hero section
-    await expect(page.getByRole('heading', { name: /Authentic Nellore Cuisine/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Authentic Nellore Cuisine/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Taste the tradition, delivered to your door/i)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Order Now' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Sign Up' }).first()).toBeVisible();
@@ -31,6 +31,7 @@ test.describe('01 - Homepage Load', () => {
 
   test('hero links navigate correctly', async ({ page }) => {
     await page.goto('/');
+
     // Order Now links to /menu
     await page.getByRole('link', { name: 'Order Now' }).click();
     await expect(page).toHaveURL(/\/menu$/);

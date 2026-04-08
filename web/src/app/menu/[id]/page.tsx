@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { API_BASE } from "@/lib/api";
-import { useCartStore } from "@/lib/store";
+import { useCart } from "@/hooks/useCart";
 
 interface MenuItem {
   id: string;
@@ -22,7 +22,22 @@ export default function MenuItemDetailPage() {
   const [item, setItem] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const addItem = useCartStore((s: any) => s.addItem);
+  const { addItem } = useCart();
+
+  const handleAddToCart = useCallback(() => {
+    if (!item) return;
+    // Transform to match cart's expected format
+    addItem({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
+      category: '',
+      image: item.image_url,
+      isVegetarian: item.is_vegetarian,
+      isAvailable: item.is_available,
+    } as any, quantity);
+  }, [item, addItem, quantity]);
 
   useEffect(() => {
     fetch(`${API_BASE}/menu/${params.id}`).then((r) => r.json()).then(setItem).finally(() => setLoading(false));
@@ -30,6 +45,8 @@ export default function MenuItemDetailPage() {
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" /></div>;
   if (!item) return <div className="text-center py-20 text-gray-400">Item not found</div>;
+
+  const price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
@@ -55,9 +72,9 @@ export default function MenuItemDetailPage() {
               <span className="px-4 py-2 font-medium min-w-[40px] text-center">{quantity}</span>
               <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-2 hover:bg-gray-100">+</button>
             </div>
-            <button onClick={() => addItem({ id: item.id, name: item.name, price: parseFloat(item.price), quantity })}
+            <button onClick={handleAddToCart}
               className="bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-orange-700 transition">
-              Add to Cart — ₹{(parseFloat(item.price) * quantity).toFixed(2)}
+              Add to Cart — ₹{(price * quantity).toFixed(2)}
             </button>
           </div>
         </div>
