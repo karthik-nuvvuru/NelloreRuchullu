@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "NelloreRuchullu",
+    "slug": "nellore-ruchullu",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nellore-ruchullu",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF4500"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.nelloreruchullu.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to find restaurants near you.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track your orders."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FF4500"
+      },
+      "package": "com.nelloreruchullu.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-location",
+      "expo-image-picker",
+      "expo-linear-gradient",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
