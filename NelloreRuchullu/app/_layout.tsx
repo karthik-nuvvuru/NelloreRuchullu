@@ -38,8 +38,8 @@ export default function RootLayout() {
           {/* Order Tracking */}
           <Stack.Screen name="track/[id]" />
 
-          {/* Profile Edit */}
-          <Stack.Screen name="profile/edit" />
+          {/* Notifications */}
+          <Stack.Screen name="notifications" />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
