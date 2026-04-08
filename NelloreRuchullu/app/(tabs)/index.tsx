@@ -55,7 +55,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleAddToCart = (item: any) => {
-    const restaurant = restaurants[0];
+    const restaurant = restaurants[0] as any;
     addItem(item, restaurant);
   };
 
