@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   RefreshControl,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,8 +17,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { restaurants, categories, getPopularItems } from "../../src/data/mockData";
 import { useCartStore } from "../../src/store";
 import { SearchBar, RestaurantCard, FoodCard, CategoryChip, OfferCard } from "../../src/components";
+import { useMealsByCategory, transformMealToMenuItem, Meal } from "../../src/hooks/useMealDB";
 
 const { width } = Dimensions.get("window");
+
+// Hyderabad coordinates for map
+const HYDERABAD_COORDS = {
+  latitude: 17.3850,
+  longitude: 78.4867,
+};
 
 export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -25,13 +33,30 @@ export default function HomeScreen() {
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
 
+  // MealDB API - Fetch chicken biryani meals
+  const { meals, loading, error } = useMealsByCategory("Chicken");
+
+  // Transform MealDB meals to menu items
+  const apiMenuItems = meals.slice(0, 12).map((meal, i) => transformMealToMenuItem(meal, "Biryani"));
+
+  // Mock restaurants (from local data + MealDB images)
+  const allRestaurants = restaurants.slice(0, 5).map((r, i) => ({
+    ...r,
+    image: meals[i]?.strMealThumb || r.image,
+  }));
+
   const popularItems = getPopularItems();
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setRefreshing(false);
+  }, []);
+
+  const handleAddToCart = (item: any) => {
+    const restaurant = restaurants[0];
+    addItem(item, restaurant);
   };
 
   return (
@@ -62,7 +87,7 @@ export default function HomeScreen() {
         <View style={styles.searchContainer}>
           <SearchBar
             placeholder="Search restaurants, dishes..."
-            onFocus={() => router.push("/search")}
+            onFocus={() => router.push("/(tabs)/search")}
           />
         </View>
 
@@ -107,18 +132,57 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Popular Items */}
+        {/* API Loaded Dishes - MealDB */}
+        <View style={styles.popularSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🍛 Nellore Specials (Live API)</Text>
+            <Pressable onPress={() => router.push("/(tabs)/search")}>
+              <Text style={styles.seeAllText}>See All →</Text>
+            </Pressable>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF4500" />
+              <Text style={styles.loadingText}>Loading from TheMealDB API...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorEmoji}>⚠️</Text>
+              <Text style={styles.errorText}>Failed to load dishes</Text>
+              <Text style={styles.errorSubtext}>Showing local data instead</Text>
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={apiMenuItems}
+              renderItem={({ item }) => (
+                <View style={styles.popularCardContainer}>
+                  <FoodCard
+                    item={item}
+                    onAddToCart={() => handleAddToCart(item)}
+                    showAddButton={true}
+                  />
+                </View>
+              )}
+              keyExtractor={(item) => item.id}
+            />
+          )}
+        </View>
+
+        {/* Popular Items (Local Data) */}
         <View style={styles.popularSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>⭐ Popular Picks</Text>
-            <Pressable onPress={() => router.push("/search")}>
+            <Pressable onPress={() => router.push("/(tabs)/search")}>
               <Text style={styles.seeAllText}>See All →</Text>
             </Pressable>
           </View>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={popularItems}
+            data={popularItems.slice(0, 6)}
             renderItem={({ item }) => {
               const restaurant = restaurants.find((r) => r.id === item.restaurantId);
               if (!restaurant) return null;
@@ -139,7 +203,7 @@ export default function HomeScreen() {
         {/* Restaurants Near You */}
         <View style={styles.restaurantsSection}>
           <Text style={styles.sectionTitle}>🏪 Restaurants Near You</Text>
-          {restaurants.slice(0, 5).map((restaurant) => (
+          {allRestaurants.map((restaurant) => (
             <View key={restaurant.id} style={styles.restaurantCardContainer}>
               <RestaurantCard
                 restaurant={restaurant}
@@ -148,13 +212,29 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+
+        {/* Hyderabad Location Banner */}
+        <View style={styles.locationBanner}>
+          <LinearGradient
+            colors={["#FF4500", "#FF6B35"]}
+            style={styles.locationBannerGradient}
+          >
+            <Text style={styles.locationBannerEmoji}>📍</Text>
+            <View style={styles.locationBannerContent}>
+              <Text style={styles.locationBannerTitle}>Serving Hyderabad & Nellore</Text>
+              <Text style={styles.locationBannerSubtitle}>
+                Live tracking at: {HYDERABAD_COORDS.latitude}°N, {HYDERABAD_COORDS.longitude}°E
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
       </ScrollView>
 
       {/* Floating Cart Button */}
       {cartItemCount > 0 && (
         <Pressable
           style={styles.cartButton}
-          onPress={() => router.push("/cart")}
+          onPress={() => router.push("/(tabs)/cart")}
         >
           <LinearGradient
             colors={["#FF4500", "#FF6B35"]}
@@ -284,11 +364,65 @@ const styles = StyleSheet.create({
     color: "#FF4500",
     fontWeight: "600",
   },
+  loadingContainer: {
+    alignItems: "center",
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 12,
+  },
+  errorContainer: {
+    alignItems: "center",
+    padding: 32,
+  },
+  errorEmoji: {
+    fontSize: 48,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#EF4444",
+    marginTop: 8,
+  },
+  errorSubtext: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    marginTop: 4,
+  },
   restaurantsSection: {
     paddingBottom: 100,
   },
   restaurantCardContainer: {
     paddingHorizontal: 16,
+  },
+  locationBanner: {
+    marginHorizontal: 16,
+    marginBottom: 100,
+  },
+  locationBannerGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 16,
+  },
+  locationBannerEmoji: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  locationBannerContent: {
+    flex: 1,
+  },
+  locationBannerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  locationBannerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
   },
   cartButton: {
     position: "absolute",

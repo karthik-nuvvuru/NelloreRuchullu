@@ -29,7 +29,12 @@ export default function RestaurantScreen() {
 
   const menuItemsList = useMemo(() => {
     if (!restaurant) return [];
-    return menuItems.filter((item) => restaurant.menu.includes(item.id));
+    // If restaurant has menu IDs, filter by those
+    if (restaurant.menu && restaurant.menu.length > 0) {
+      return menuItems.filter((item) => restaurant.menu?.includes(item.id));
+    }
+    // Otherwise, show all items from this restaurant
+    return menuItems.filter((item) => item.restaurantId === restaurant.id);
   }, [restaurant]);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -48,7 +53,7 @@ export default function RestaurantScreen() {
     );
   }
 
-  const handleAddToCart = (item: typeof menuItemsList[0]) => {
+  const handleAddToCart = (item: (typeof menuItemsList)[0]) => {
     addItem(item, restaurant);
   };
 
@@ -66,26 +71,32 @@ export default function RestaurantScreen() {
         </Pressable>
         <View style={styles.headerContent}>
           <Text style={styles.restaurantName}>{restaurant.name}</Text>
-          <Text style={styles.restaurantCuisine}>{restaurant.cuisine}</Text>
+          <Text style={styles.restaurantCuisine}>
+            {Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(" • ") : restaurant.cuisine}
+          </Text>
           <View style={styles.headerMeta}>
             <View style={styles.ratingBadge}>
               <Text style={styles.ratingText}>⭐ {restaurant.rating}</Text>
             </View>
-            <Text style={styles.deliveryTime}>🚴 {restaurant.deliveryTime}</Text>
-            <Text style={styles.priceForTwo}>💰 {restaurant.priceForTwo}</Text>
+            <Text style={styles.deliveryTime}>🚴 {restaurant.deliveryTime} mins</Text>
+            {restaurant.priceRange && (
+              <Text style={styles.priceForTwo}>💰 {restaurant.priceRange}</Text>
+            )}
           </View>
         </View>
       </View>
 
       {/* Restaurant Info Pills */}
       <View style={styles.infoPills}>
-        <Badge text="Pure Veg" color={restaurant.isPureVeg ? "#2E7D32" : "#EF4444"} />
-        <View style={styles.infoPill}>
-          <Text style={styles.infoPillText}>🕐 {restaurant.timings}</Text>
-        </View>
-        {restaurant.discount > 0 && (
+        <Badge text={restaurant.isVeg ? "Pure Veg" : "Non-Veg"} color={restaurant.isVeg ? "#2E7D32" : "#EF4444"} />
+        {restaurant.offer && (
           <View style={styles.infoPill}>
-            <Text style={styles.infoPillText}>🔥 {restaurant.discount}% off</Text>
+            <Text style={styles.infoPillText}>🔥 {restaurant.offer}</Text>
+          </View>
+        )}
+        {restaurant.distance && (
+          <View style={styles.infoPill}>
+            <Text style={styles.infoPillText}>📍 {restaurant.distance}</Text>
           </View>
         )}
       </View>
@@ -114,12 +125,12 @@ export default function RestaurantScreen() {
         {activeTab === "menu" ? (
           <View style={styles.menuSection}>
             {/* Popular Items */}
-            {menuItemsList.filter((item) => item.isPopular).length > 0 && (
+            {menuItemsList.filter((item) => item.popular).length > 0 && (
               <View style={styles.menuCategory}>
                 <Text style={styles.categoryTitle}>⭐ Popular Items</Text>
                 <View style={styles.menuGrid}>
                   {menuItemsList
-                    .filter((item) => item.isPopular)
+                    .filter((item) => item.popular)
                     .map((item) => (
                       <View key={item.id} style={styles.menuItemWrapper}>
                         <FoodCard
@@ -224,19 +235,21 @@ export default function RestaurantScreen() {
             {/* Address */}
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>📍 Address</Text>
-              <Text style={styles.infoCardContent}>{restaurant.address}</Text>
+              <Text style={styles.infoCardContent}>{restaurant.address || "Koramanpally, Nellore, AP"}</Text>
             </View>
 
             {/* Timings */}
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>🕐 Timings</Text>
-              <Text style={styles.infoCardContent}>{restaurant.timings}</Text>
+              <Text style={styles.infoCardContent}>{restaurant.timings || "10:00 AM - 10:00 PM"}</Text>
             </View>
 
             {/* Info */}
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>ℹ️ About</Text>
-              <Text style={styles.infoCardContent}>{restaurant.name} is a renowned cloud kitchen in {restaurant.location}, serving authentic Nellore cuisine with fresh ingredients and traditional recipes.</Text>
+              <Text style={styles.infoCardContent}>
+                {restaurant.name} is a renowned cloud kitchen serving authentic Nellore cuisine with fresh ingredients and traditional recipes passed down through generations.
+              </Text>
             </View>
           </View>
         )}

@@ -26,23 +26,23 @@ export interface Restaurant {
   rating: number;
   deliveryTime: string;
   cuisine: string[];
-  priceRange: string;
-  isVeg: boolean;
+  priceRange?: string;
+  isVeg?: boolean;
   offer?: string;
-  distance: string;
+  distance?: string;
 }
 
 export interface MenuItem {
   id: string;
   restaurantId: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   image: string;
   category: string;
   isVeg: boolean;
-  rating: number;
-  prepTime: string;
+  rating?: number;
+  prepTime?: string;
   addons?: Addon[];
   popular?: boolean;
 }

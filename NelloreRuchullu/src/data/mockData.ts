@@ -49,7 +49,15 @@ export const TRANSLATIONS = {
     home: "Home",
     search: "Search",
     cart: "Cart",
-    profile: "Profile",
+    profile: {
+      account: "Account",
+      addresses: "Addresses",
+      payment: "Payment Methods",
+      notifications: "Notifications",
+      help: "Help & Support",
+      terms: "Terms of Service",
+      privacy: "Privacy Policy",
+    },
     orders: "Orders",
     offers: "Offers",
     biryani: "Biryani",
@@ -78,7 +86,15 @@ export const TRANSLATIONS = {
     home: "హోమ్",
     search: "వెతుకు",
     cart: "కార్ట్",
-    profile: "ప్రొఫైల్",
+    profile: {
+      account: "అకౌంట్",
+      addresses: "చిరునామాలు",
+      payment: "చెల్లింపు విధానాలు",
+      notifications: "నోటిఫికేషన్లు",
+      help: "సహాయం & సపోర్ట్",
+      terms: "సేవల నిబంధనలు",
+      privacy: "ప్రైవసీ పాలసీ",
+    },
     orders: "ఆర్డర్లు",
     offers: "ఆఫర్లు",
     biryani: "బిరియాని",
@@ -862,7 +878,7 @@ export const searchMenuItems = (query: string) => {
   return menuItems.filter(
     (item) =>
       item.name.toLowerCase().includes(lower) ||
-      item.description.toLowerCase().includes(lower) ||
+      (item.description && item.description.toLowerCase().includes(lower)) ||
       item.category.toLowerCase().includes(lower)
   );
 };
