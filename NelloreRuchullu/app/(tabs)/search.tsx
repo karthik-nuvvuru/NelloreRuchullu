@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  FlatList,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,11 +27,7 @@ export default function SearchScreen() {
       results = results.filter(
         (r) =>
           r.name.toLowerCase().includes(query) ||
-          r.cuisine.toLowerCase().includes(query) ||
-          r.menu.some((itemId) => {
-            const item = menuItems.find((m) => m.id === itemId);
-            return item?.name.toLowerCase().includes(query);
-          })
+          (r.cuisine && r.cuisine.some((c: string) => c.toLowerCase().includes(query)))
       );
     }
 
@@ -46,7 +41,11 @@ export default function SearchScreen() {
       case "delivery":
         return [...results].sort((a, b) => a.deliveryTime.localeCompare(b.deliveryTime));
       case "price":
-        return [...results].sort((a, b) => a.priceForTwo - b.priceForTwo);
+        return [...results].sort((a, b) => {
+          const priceA = parseInt(a.priceRange?.match(/\d+/)?.[0] || "0", 10);
+          const priceB = parseInt(b.priceRange?.match(/\d+/)?.[0] || "0", 10);
+          return priceA - priceB;
+        });
       default:
         return results;
     }
@@ -57,11 +56,11 @@ export default function SearchScreen() {
     const query = searchQuery.toLowerCase();
     return menuItems.filter((item) =>
       item.name.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query)
+      (item.description && item.description.toLowerCase().includes(query))
     );
   }, [searchQuery]);
 
-  const handleAddToCart = (item: typeof menuItems[0]) => {
+  const handleAddToCart = (item: (typeof menuItems)[0]) => {
     const restaurant = restaurants.find((r) => r.id === item.restaurantId);
     if (restaurant) {
       addItem(item, restaurant);
@@ -87,7 +86,7 @@ export default function SearchScreen() {
             </Pressable>
           )}
         </View>
-        <Pressable style={styles.filterButton} onPress={() => {}}>
+        <Pressable style={styles.filterButton}>
           <Text style={styles.filterIcon}>⚙️</Text>
         </Pressable>
       </View>
@@ -99,11 +98,11 @@ export default function SearchScreen() {
         style={styles.filtersContainer}
         contentContainerStyle={styles.filtersContent}
       >
-        {["rating", "delivery", "price"].map((sort) => (
+        {(["rating", "delivery", "price"] as const).map((sort) => (
           <Pressable
             key={sort}
             style={[styles.sortChip, sortBy === sort && styles.sortChipActive]}
-            onPress={() => setSortBy(sort as typeof sortBy)}
+            onPress={() => setSortBy(sort)}
           >
             <Text style={[styles.sortChipText, sortBy === sort && styles.sortChipTextActive]}>
               {sort === "rating" ? "⭐ Top Rated" : sort === "delivery" ? "⚡ Fast Delivery" : "💰 Low Price"}

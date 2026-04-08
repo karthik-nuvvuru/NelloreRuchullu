@@ -1,12 +1,6 @@
-import { useEffect } from "react";
-import { View, StyleSheet, Text } from "react-native";
-import { Link, Redirect } from "expo-router";
-import { useUserStore } from "./src/store";
+import { Redirect } from "expo-router";
 
 export default function Root() {
-  const user = useUserStore((state) => state.user);
-
-  // For now, redirect to onboarding
-  // In a real app, you'd check if user has completed onboarding
+  // Redirect to splash screen on app load
   return <Redirect href="/splash" />;
 }
