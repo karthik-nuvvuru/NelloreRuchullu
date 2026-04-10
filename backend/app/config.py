@@ -1,11 +1,13 @@
 import json
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=None,  # Don't read from .env file, use environment variables only
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     # App
@@ -17,57 +19,42 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(
-        default="postgresql+asyncpg://bello:bello_secret_2024@localhost:5432/bello"
+        default="postgresql+asyncpg://bello:bello_secret_2024@localhost:5432/bello",
+        alias="DATABASE_URL"
     )
 
     # Redis
-    redis_url: str = Field(default="redis://localhost:6379/0")
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     # JWT
-    secret_key: str = Field(default="change-this-in-production")
+    secret_key: str = Field(default="change-this-in-production", alias="SECRET_KEY")
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     algorithm: str = "HS256"
 
     # Razorpay
-    razorpay_key_id: str = Field(default="rzp_test_1234567890")
-    razorpay_key_secret: str = Field(default="test_secret_1234567890")
-    razorpay_webhook_secret: str = Field(default="webhook_secret_123")
+    razorpay_key_id: str = Field(default="rzp_test_1234567890", alias="RAZORPAY_KEY_ID")
+    razorpay_key_secret: str = Field(default="test_secret_1234567890", alias="RAZORPAY_KEY_SECRET")
+    razorpay_webhook_secret: str = Field(default="webhook_secret_123", alias="RAZORPAY_WEBHOOK_SECRET")
 
     # Email (SMTP)
-    smtp_host: str = Field(default="smtp.gmail.com")
+    smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     smtp_port: int = 587
-    smtp_user: str = Field(default="noreply@nellore-ruchullu.com")
-    smtp_password: str = Field(default="")
+    smtp_user: str = Field(default="noreply@nellore-ruchullu.com", alias="SMTP_USER")
+    smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
 
     # SMS (Twilio)
-    twilio_account_sid: str = Field(default="")
-    twilio_auth_token: str = Field(default="")
-    twilio_from_number: str = Field(default="+919999999999")
+    twilio_account_sid: str = Field(default="", alias="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: str = Field(default="", alias="TWILIO_AUTH_TOKEN")
+    twilio_from_number: str = Field(default="+919999999999", alias="TWILIO_FROM_NUMBER")
 
     # Frontend
-    frontend_url: str = Field(default="http://localhost:3000")
+    frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
 
     # Rate limiting
     rate_limit_per_minute: int = Field(default=30)
     rate_limit_login_per_hour: int = Field(default=10)
     rate_limit_otp_per_hour: int = Field(default=5)
-
-    # CORS
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"]
-    )
-
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            try:
-                return json.loads(v)
-            except json.JSONDecodeError:
-                # Fallback: split by comma
-                return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
 
 
 settings = Settings()

@@ -40,7 +40,7 @@ async def assign_delivery(
         delivery = result.scalar_one_or_none()
         if not delivery:
             raise NotFoundError("Delivery record not found")
-        return await delivery_service.assign_delivery_partner(db, delivery.id, partner_id)
+        return await delivery_service.assign_delivery(db, delivery.id, partner_id)
     else:
         return await delivery_service.auto_assign_delivery(db, order_id)
 
@@ -62,4 +62,4 @@ async def available_partners(
     _: str = Depends(require_role("admin", "vendor")),
     delivery_service: DeliveryService = Depends(get_delivery_service),
 ):
-    return await delivery_service.list_available_partners(db)
+    return await delivery_service.get_available_partners(db)

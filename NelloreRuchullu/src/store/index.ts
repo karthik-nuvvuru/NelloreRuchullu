@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { cartApi, menuApi } from "../lib/api";
 
 export interface CartItem {
   id: string;
@@ -88,7 +89,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   tax: 0,
   total: 0,
 
-  addItem: (item: MenuItem, restaurant: Restaurant) => {
+  addItem: async (item: MenuItem, restaurant: Restaurant) => {
     const currentItems = get().items;
 
     // If adding from different restaurant, clear cart first
@@ -144,9 +145,16 @@ export const useCartStore = create<CartState>((set, get) => ({
     const total = subtotal + get().deliveryFee + tax;
 
     set({ subtotal, tax, total });
+
+    // Sync to backend
+    try {
+      await cartApi.addItem({ menuItemId: item.id, quantity: 1 });
+    } catch (error) {
+      console.error("Failed to sync cart to backend:", error);
+    }
   },
 
-  removeItem: (id: string) => {
+  removeItem: async (id: string) => {
     const items = get().items.filter((i) => i.id !== id);
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const tax = Math.round(subtotal * 0.05);
@@ -160,9 +168,16 @@ export const useCartStore = create<CartState>((set, get) => ({
       restaurantName: items.length > 0 ? get().restaurantName : null,
       restaurantId: items.length > 0 ? get().restaurantId : null,
     });
+
+    // Sync to backend
+    try {
+      await cartApi.removeItem(id);
+    } catch (error) {
+      console.error("Failed to sync cart to backend:", error);
+    }
   },
 
-  updateQuantity: (id: string, quantity: number) => {
+  updateQuantity: async (id: string, quantity: number) => {
     if (quantity <= 0) {
       get().removeItem(id);
       return;
@@ -176,9 +191,16 @@ export const useCartStore = create<CartState>((set, get) => ({
     const total = subtotal + get().deliveryFee + tax;
 
     set({ items, subtotal, tax, total });
+
+    // Sync to backend
+    try {
+      await cartApi.updateItem(id, { quantity });
+    } catch (error) {
+      console.error("Failed to sync cart to backend:", error);
+    }
   },
 
-  clearCart: () => {
+  clearCart: async () => {
     set({
       items: [],
       restaurantName: null,
@@ -188,6 +210,13 @@ export const useCartStore = create<CartState>((set, get) => ({
       tax: 0,
       total: 0,
     });
+
+    // Sync to backend
+    try {
+      await cartApi.clear();
+    } catch (error) {
+      console.error("Failed to sync cart to backend:", error);
+    }
   },
 
   applyCoupon: (code: string) => {

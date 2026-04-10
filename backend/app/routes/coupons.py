@@ -25,6 +25,16 @@ async def validate_coupon(
     return await coupon_service.validate_coupon(db, code, order_amount)
 
 
+@router.post("/apply/{code}")
+async def apply_coupon(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+    coupon_service: CouponService = Depends(get_coupon_service),
+):
+    coupon = await coupon_service.apply_coupon(db, code)
+    return {"message": "Coupon applied", "code": coupon.code, "used_count": coupon.used_count}
+
+
 @router.post("", response_model=CouponResponse, status_code=201)
 async def create_coupon(
     body: CouponCreate,

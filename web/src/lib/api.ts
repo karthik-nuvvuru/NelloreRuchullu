@@ -144,6 +144,12 @@ export const authApi = {
 
   getProfile: () =>
     apiFetch<import('@/types').User>('/users/me'),
+
+  updateProfile: (data: Partial<import('@/types').User>) =>
+    apiFetch<import('@/types').User>('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Menu APIs
@@ -230,7 +236,7 @@ export const adminApi = {
       revenueByDay: { date: string; revenue: number }[];
       ordersByDay: { date: string; count: number }[];
       topItems: { name: string; count: number; revenue: number }[];
-    }>('/admin/stats'),
+    }>('/analytics/overview'),
 
   getAllUsers: (params?: { page?: number; limit?: number; search?: string }) =>
     adminApi._getAllUsers(params || {}),
@@ -261,8 +267,8 @@ export const adminApi = {
     }>('/admin/orders', { params }),
 
   updateOrderStatus: (orderId: string, status: import('@/types').OrderStatus) =>
-    apiFetch<import('@/types').Order>(`/admin/orders/${orderId}/status`, {
-      method: 'PATCH',
+    apiFetch<import('@/types').Order>(`/orders/${orderId}/status`, {
+      method: 'POST',
       body: JSON.stringify({ status }),
     }),
 };

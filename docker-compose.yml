@@ -10,15 +10,15 @@ services:
     image: postgres:16-alpine
     container_name: nellore_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-bello}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bello_secret_2024}
-      POSTGRES_DB: ${POSTGRES_DB:-bello}
+      POSTGRES_USER: ${POSTGRES_USER:-nelloreruchullu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelloreruchullu_secret_2024}
+      POSTGRES_DB: ${POSTGRES_DB:-nelloreruchullu}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bello} -d ${POSTGRES_DB:-bello}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nelloreruchullu} -d ${POSTGRES_DB:-nelloreruchullu}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,7 +58,7 @@ services:
     container_name: nellore_backend
     environment:
       # Database - use the full connection string
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bello}:${POSTGRES_PASSWORD:-bello_secret_2024}@postgres:5432/${POSTGRES_DB:-bello}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-nelloreruchullu}:${POSTGRES_PASSWORD:-nelloreruchullu_secret_2024}@postgres:5432/${POSTGRES_DB:-nelloreruchullu}
       # Redis
       REDIS_URL: redis://redis:6379/0
       # Security
@@ -115,7 +115,7 @@ services:
     container_name: nellore_celery
     command: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=4
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bello}:${POSTGRES_PASSWORD:-bello_secret_2024}@postgres:5432/${POSTGRES_DB:-bello}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-nelloreruchullu}:${POSTGRES_PASSWORD:-nelloreruchullu_secret_2024}@postgres:5432/${POSTGRES_DB:-nelloreruchullu}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change-this-in-production-use-openssl-rand-hex-32}
       ENVIRONMENT: ${ENVIRONMENT:-production}
