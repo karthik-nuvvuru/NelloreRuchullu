@@ -1,115 +1,198 @@
-// API services for NelloreRuchullu
-import { Meal } from "./useMealDB";
+// API hooks for NelloreRuchullu - Real Backend Integration
+import { useState, useEffect, useCallback } from "react";
+import { apiFetch, authApi, menuApi, orderApi, couponApi, cartApi, ApiError } from "../lib/api";
+import type { User, MenuItem, Order, CartResponse } from "../lib/api";
 
-// JSONPlaceholder base
-const JSONPLACEHOLDER_BASE = "https://jsonplaceholder.typicode.com";
+// Re-export types for backwards compatibility
+export type { User, MenuItem, Order };
+export { ApiError };
 
-// Types for orders
-export interface PlaceholderOrder {
-  userId: number;
-  id?: number;
-  title: string;
-  completed: boolean;
+// Auth token storage
+export async function saveAuthToken(token: string, user: User): Promise<void> {
+  import AsyncStorage from "@react-native-async-storage/async-storage";
+  await AsyncStorage.setItem("auth_token", token);
+  await AsyncStorage.setItem("user", JSON.stringify(user));
 }
 
-export interface PlaceholderUser {
-  id: number;
-  name: string;
-  username: string;
-  email: string;
-  phone: string;
-  website: string;
+export async function getAuthToken(): Promise<string | null> {
+  import AsyncStorage from "@react-native-async-storage/async-storage";
+  return AsyncStorage.getItem("auth_token");
 }
 
-// Fetch orders from JSONPlaceholder (simulating order history)
-export async function fetchPlaceholderOrders(userId: number = 1): Promise<PlaceholderOrder[]> {
+export async function clearAuthToken(): Promise<void> {
+  import AsyncStorage from "@react-native-async-storage/async-storage";
+  await AsyncStorage.removeItem("auth_token");
+  await AsyncStorage.removeItem("user");
+}
+
+// Fetch user profile
+export async function fetchUserProfile(): Promise<User | null> {
   try {
-    const response = await fetch(`${JSONPLACEHOLDER_BASE}/users/${userId}/todos`);
-    const data = await response.json();
-    return data.slice(0, 10); // Return first 10 as "orders"
+    return await authApi.getProfile();
+  } catch (error) {
+    console.error("Failed to fetch profile:", error);
+    return null;
+  }
+}
+
+// Fetch menu items from backend
+export async function fetchMenuItems(params?: {
+  category?: string;
+  vegetarian?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ items: MenuItem[]; total: number }> {
+  try {
+    const result = await menuApi.getAll(params);
+    return { items: result.items, total: result.total };
+  } catch (error) {
+    console.error("Failed to fetch menu:", error);
+    return { items: [], total: 0 };
+  }
+}
+
+// Fetch menu categories
+export async function fetchCategories(): Promise<string[]> {
+  try {
+    const result = await menuApi.getCategories();
+    return result.categories;
+  } catch (error) {
+    console.error("Failed to fetch categories:", error);
+    return [];
+  }
+}
+
+// Fetch orders from backend
+export async function fetchOrders(): Promise<Order[]> {
+  try {
+    const result = await orderApi.getMyOrders();
+    return result.orders;
   } catch (error) {
     console.error("Failed to fetch orders:", error);
     return [];
   }
 }
 
-// Fetch users from JSONPlaceholder (simulating user profiles)
-export async function fetchPlaceholderUsers(): Promise<PlaceholderUser[]> {
+// Fetch single order
+export async function fetchOrderById(orderId: string): Promise<Order | null> {
   try {
-    const response = await fetch(`${JSONPLACEHOLDER_BASE}/users`);
-    const data = await response.json();
-    return data;
+    return await orderApi.getById(orderId);
   } catch (error) {
-    console.error("Failed to fetch users:", error);
-    return [];
-  }
-}
-
-// Fetch single user
-export async function fetchPlaceholderUser(id: number): Promise<PlaceholderUser | null> {
-  try {
-    const response = await fetch(`${JSONPLACEHOLDER_BASE}/users/${id}`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch user:", error);
+    console.error("Failed to fetch order:", error);
     return null;
   }
 }
 
-// Transform placeholder order to app order format
-export function transformPlaceholderOrder(order: PlaceholderOrder, index: number) {
-  const statuses = ["placed", "confirmed", "preparing", "outForDelivery", "delivered"] as const;
-  const restaurants = [
-    "Nellore Kitchen",
-    "Rayalaseema Flavors",
-    "Spice Garden",
-    "Biryani Point",
-    "Royal Biryani"
-  ];
-  const status = order.completed ? "delivered" : statuses[index % statuses.length];
+// Validate coupon
+export async function validateCoupon(code: string, orderAmount: number) {
+  try {
+    return await couponApi.validate(code, orderAmount);
+  } catch (error) {
+    console.error("Failed to validate coupon:", error);
+    return { valid: false, message: "Failed to validate coupon" };
+  }
+}
+
+// Apply coupon (increment usage count)
+export async function applyCoupon(code: string) {
+  try {
+    return await couponApi.apply(code);
+  } catch (error) {
+    console.error("Failed to apply coupon:", error);
+    return null;
+  }
+}
+
+// Cart operations
+export async function fetchCart(): Promise<CartResponse | null> {
+  try {
+    return await cartApi.get();
+  } catch (error) {
+    console.error("Failed to fetch cart:", error);
+    return null;
+  }
+}
+
+export async function addToCart(menuItemId: string, quantity: number, specialInstructions?: string): Promise<CartResponse | null> {
+  try {
+    return await cartApi.addItem({ menuItemId, quantity, specialInstructions });
+  } catch (error) {
+    console.error("Failed to add to cart:", error);
+    return null;
+  }
+}
+
+export async function updateCartItem(itemId: string, quantity: number): Promise<CartResponse | null> {
+  try {
+    return await cartApi.updateItem(itemId, { quantity });
+  } catch (error) {
+    console.error("Failed to update cart item:", error);
+    return null;
+  }
+}
+
+export async function removeFromCart(itemId: string): Promise<CartResponse | null> {
+  try {
+    return await cartApi.removeItem(itemId);
+  } catch (error) {
+    console.error("Failed to remove from cart:", error);
+    return null;
+  }
+}
+
+export async function clearCartApi(): Promise<boolean> {
+  try {
+    await cartApi.clear();
+    return true;
+  } catch (error) {
+    console.error("Failed to clear cart:", error);
+    return false;
+  }
+}
+
+// Transform backend order to app format
+export function transformBackendOrder(order: Order) {
+  const statusMap: Record<string, string> = {
+    PENDING: "placed",
+    CONFIRMED: "confirmed",
+    PREPARING: "preparing",
+    READY_FOR_PICKUP: "outForDelivery",
+    OUT_FOR_DELIVERY: "outForDelivery",
+    DELIVERED: "delivered",
+    CANCELLED: "cancelled",
+  };
 
   return {
-    id: `NR${order.id || index + 100}`,
-    restaurantName: restaurants[index % restaurants.length],
-    status,
-    total: Math.floor(Math.random() * 400) + 200,
-    items: [
-      { id: "1", name: "Chicken Biryani", price: 349, quantity: 1 },
-      { id: "2", name: "Gongura Chicken", price: 279, quantity: 1 },
-    ],
-    placedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    id: order.id,
+    restaurantName: "Nellore Ruchullu",
+    status: statusMap[order.status] || "placed",
+    total: order.totalAmount,
+    items: order.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.unitPrice,
+      quantity: item.quantity,
+    })),
+    placedAt: order.createdAt,
     estimatedDelivery: Date.now() + 45 * 60 * 1000,
   };
 }
 
-// Transform placeholder user to app user format
-export function transformPlaceholderUser(user: PlaceholderUser) {
+// Transform backend menu item to app format
+export function transformBackendMenuItem(item: MenuItem) {
   return {
-    id: `user_${user.id}`,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    language: "en" as const,
-  };
-}
-
-// Transform MealDB meal to restaurant format
-export function transformMealToRestaurant(meal: Meal, index: number): any {
-  const cuisines = ["Nellore", "Biryani", "South Indian", "Andhra", "Rayalaseema"];
-  const deliveryTimes = ["30", "35", "40", "45", "50"];
-  const ratings = [4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8];
-
-  return {
-    id: `rest_${meal.idMeal}`,
-    name: meal.strArea ? `${meal.strArea} Kitchen` : `Restaurant ${index + 1}`,
-    image: meal.strMealThumb || "",
-    rating: ratings[index % ratings.length],
-    deliveryTime: deliveryTimes[index % deliveryTimes.length],
-    cuisine: [cuisines[index % cuisines.length], "Biryani", "Nellore Special"],
-    priceRange: "₹200 for two",
-    isVeg: false,
-    offer: index % 2 === 0 ? "30% OFF" : "FREE Delivery",
-    distance: `${(Math.random() * 3 + 0.5).toFixed(1)} km`,
+    id: item.id,
+    name: item.name,
+    description: item.description || "",
+    price: item.price,
+    image: item.image || "",
+    category: item.category,
+    isVeg: item.isVeg,
+    rating: item.rating || 4.2,
+    prepTime: item.prepTime || "30",
+    popular: item.popular || false,
+    restaurantId: "restaurant_1",
+    addons: item.addons || [],
   };
 }

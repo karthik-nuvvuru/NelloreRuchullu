@@ -136,6 +136,19 @@ class OrderService:
             status=DeliveryStatus.UNASSIGNED,
         )
         db.add(delivery)
+        await db.flush()
+
+        # Auto-assign delivery partner
+        import random
+        partner_result = await db.execute(
+            select(User).where(User.role == UserRole.DELIVERY, User.is_active == True)
+        )
+        available_partners = list(partner_result.scalars().all())
+        if available_partners:
+            partner = random.choice(available_partners)
+            delivery.delivery_partner_id = partner.id
+            delivery.status = DeliveryStatus.ASSIGNED
+            await db.flush()
 
         # Clear cart
         cart.is_active = False
@@ -266,7 +279,11 @@ class OrderService:
             OrderStatus.DELIVERED: DeliveryStatus.DELIVERED,
         }
 
+        # Sync delivery status with order status
         new_status_enum = OrderStatus(new_status)
+        if new_status_enum in delivery_status_map and order.delivery_record:
+            order.delivery_record.status = delivery_status_map[new_status_enum]
+            await db.flush()
         await self._publish_event("order.status_changed", {
             "order_id": str(order_id),
             "status": new_status,

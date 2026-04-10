@@ -57,6 +57,26 @@ async def seed_database():
                 "status": UserStatus.ACTIVE,
                 "is_verified": True,
             },
+            {
+                "email": "delivery1@example.com",
+                "phone": "+919988776658",
+                "password_hash": pwd_context.hash("deliverypass123"),
+                "first_name": "Delivery",
+                "last_name": "Partner 1",
+                "role": UserRole.DELIVERY,
+                "status": UserStatus.ACTIVE,
+                "is_verified": True,
+            },
+            {
+                "email": "delivery2@example.com",
+                "phone": "+919988776659",
+                "password_hash": pwd_context.hash("deliverypass123"),
+                "first_name": "Delivery",
+                "last_name": "Partner 2",
+                "role": UserRole.DELIVERY,
+                "status": UserStatus.ACTIVE,
+                "is_verified": True,
+            },
         ]
 
         created_users = []
@@ -128,7 +148,7 @@ async def seed_database():
 
         await db.commit()
         print("✓ Database seeded successfully!")
-        print(f"  - Created {len(test_users)} users")
+        print(f"  - Created {len(test_users)} users (including 2 delivery partners)")
         print(f"  - Created {len(categories_data)} categories")
         print(f"  - Created {len(menu_items_data)} menu items")
 

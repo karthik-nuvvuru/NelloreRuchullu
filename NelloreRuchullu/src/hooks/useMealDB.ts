@@ -1,24 +1,11 @@
-// API hooks for NelloreRuchullu
-import { useState, useEffect } from "react";
+// Meal/Hotel hooks using real NelloreRuchullu backend
+import { useState, useEffect, useCallback } from "react";
+import { menuApi, fetchCategories as getCategories } from "../lib/api";
+import type { MenuItem } from "../lib/api";
 
-// TheMealDB API base
-const MEALDB_BASE = "https://www.themealdb.com/api/json/v1/1";
-
-// MealDB meal type
-export interface Meal {
-  idMeal: string;
-  strMeal: string;
-  strCategory: string;
-  strArea: string;
-  strInstructions: string;
-  strMealThumb: string;
-  strTags: string | null;
-  [key: string]: string | null;
-}
-
-// Fetch meals by category (e.g., Chicken)
-export function useMealsByCategory(category: string = "Chicken") {
-  const [meals, setMeals] = useState<Meal[]>([]);
+// Fetch meals by category from real backend
+export function useMealsByCategory(category: string = "Biryani") {
+  const [meals, setMeals] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,10 +13,9 @@ export function useMealsByCategory(category: string = "Chicken") {
     const fetchMeals = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${MEALDB_BASE}/filter.php?c=${category}`);
-        const data = await response.json();
-        setMeals(data.meals || []);
         setError(null);
+        const result = await menuApi.getAll({ category, limit: 50 });
+        setMeals(result.items);
       } catch (err) {
         setError("Failed to fetch meals");
         setMeals([]);
@@ -44,9 +30,9 @@ export function useMealsByCategory(category: string = "Chicken") {
   return { meals, loading, error };
 }
 
-// Search meals by name
+// Search meals by name from real backend
 export function useSearchMeals(query: string) {
-  const [meals, setMeals] = useState<Meal[]>([]);
+  const [meals, setMeals] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,10 +45,9 @@ export function useSearchMeals(query: string) {
     const searchMeals = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${MEALDB_BASE}/search.php?s=${encodeURIComponent(query)}`);
-        const data = await response.json();
-        setMeals(data.meals || []);
         setError(null);
+        const result = await menuApi.getAll({ search: query, limit: 20 });
+        setMeals(result.items);
       } catch (err) {
         setError("Failed to search meals");
         setMeals([]);
@@ -78,9 +63,9 @@ export function useSearchMeals(query: string) {
   return { meals, loading, error };
 }
 
-// Get meal details by ID
+// Get meal details by ID from real backend
 export function useMealDetails(id: string) {
-  const [meal, setMeal] = useState<Meal | null>(null);
+  const [meal, setMeal] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,10 +79,9 @@ export function useMealDetails(id: string) {
 
       try {
         setLoading(true);
-        const response = await fetch(`${MEALDB_BASE}/lookup.php?i=${id}`);
-        const data = await response.json();
-        setMeal(data.meals?.[0] || null);
         setError(null);
+        const result = await menuApi.getById(id);
+        setMeal(result);
       } catch (err) {
         setError("Failed to fetch meal details");
         setMeal(null);
@@ -112,18 +96,30 @@ export function useMealDetails(id: string) {
   return { meal, loading, error };
 }
 
-// Transform MealDB meal to app format
-export function transformMealToMenuItem(meal: Meal, category: string = "Chicken") {
+// Transform backend menu item to app format
+export function transformMealToMenuItem(meal: MenuItem) {
   return {
-    id: meal.idMeal,
-    name: meal.strMeal,
-    description: meal.strInstructions?.substring(0, 100) + "..." || "",
-    price: Math.floor(Math.random() * 300) + 150, // Random price between 150-450
-    image: meal.strMealThumb || "",
-    category: category,
-    isVeg: false, // MealDB meals are mostly non-veg
-    rating: 4.0 + Math.random(),
-    prepTime: "30",
-    popular: true,
+    id: meal.id,
+    name: meal.name,
+    description: meal.description || "",
+    price: meal.price,
+    image: meal.image || "",
+    category: meal.category,
+    isVeg: meal.isVeg,
+    rating: meal.rating || 4.2,
+    prepTime: meal.prepTime || "30",
+    popular: meal.popular || false,
   };
+}
+
+// Meal type for backwards compatibility
+export interface Meal {
+  idMeal: string;
+  strMeal: string;
+  strCategory: string;
+  strArea: string;
+  strInstructions: string;
+  strMealThumb: string;
+  strTags: string | null;
+  [key: string]: string | null;
 }

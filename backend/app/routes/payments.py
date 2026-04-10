@@ -1,11 +1,13 @@
 """Payment routes."""
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.security import get_current_user, TokenPayload
 from app.database import get_db
 from app.dependencies import get_payment_service
@@ -49,7 +51,23 @@ async def payment_webhook(
     request: Request,
     payment_service: PaymentService = Depends(get_payment_service),
 ):
-    payload = await request.json()
+    # Get raw body for signature verification
+    body = await request.body()
+    payload = json.loads(body)
+
+    # Verify webhook signature
+    import hmac
+    import hashlib
+    signature = request.headers.get("x-razorpay-signature", "")
+    expected = hmac.new(
+        settings.razorpay_webhook_secret.encode(),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
     return await payment_service.handle_webhook(payload)
 
 

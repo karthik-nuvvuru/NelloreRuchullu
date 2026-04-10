@@ -48,6 +48,18 @@ playwright/.cache/
 # Docker
 .docker/
 
+# Mobile App
+NelloreRuchullu/.expo/
+NelloreRuchullu/ios/build/
+NelloreRuchullu/ios/Pods/
+NelloreRuchullu/ios/Podfile.lock
+NelloreRuchullu/android/
+NelloreRuchullu/dist/
+
+# Backend
+backend/logs/
+backend/uploads/
+
 # Misc
 *.bak
 *.tmp

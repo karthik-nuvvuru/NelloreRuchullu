@@ -88,11 +88,24 @@ export function useAuth() {
     }
   };
 
-  const logout = (): void => {
-    clearAuth();
-    setUser(null);
-    router.push('/');
-    router.refresh();
+  const logout = async (): Promise<void> => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+      if (token) {
+        await fetch('/api/v1/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: token }),
+        });
+      }
+    } catch {
+      // Ignore logout API errors
+    } finally {
+      clearAuth();
+      setUser(null);
+      router.push('/');
+      router.refresh();
+    }
   };
 
   return {
