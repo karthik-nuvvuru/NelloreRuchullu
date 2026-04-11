@@ -14,12 +14,14 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "../src/store";
+import { authApi } from "../src/lib/api";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtp, setShowOtp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ phone?: string; otp?: string }>({});
 
   const login = useUserStore((state) => state.login);
 
@@ -29,39 +31,45 @@ export default function LoginScreen() {
 
   const handleSendOtp = async () => {
     if (!validatePhone(phone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid 10-digit Indian phone number.");
+      setErrors({ phone: "Please enter a valid 10-digit Indian phone number." });
       return;
     }
 
     setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
-    setShowOtp(true);
-    Alert.alert("OTP Sent", "OTP has been sent to your phone number.");
+    try {
+      await authApi.requestOtp("+91" + phone);
+      setShowOtp(true);
+      setErrors({});
+    } catch (error) {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
-      Alert.alert("Invalid OTP", "Please enter the 6-digit OTP.");
+      setErrors({ otp: "Please enter the 6-digit OTP." });
       return;
     }
 
     setLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
-
-    // Login user (mock)
-    login({
-      id: "user_" + Date.now(),
-      name: "Test User",
-      email: "test@example.com",
-      phone: "+91" + phone,
-      language: "en",
-    });
-
-    router.replace("/(tabs)");
+    try {
+      const response = await authApi.verifyOtp("+91" + phone, otp);
+      login({
+        id: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        phone: response.user.phone,
+        language: response.user.language || "en",
+        avatar: response.user.avatar,
+      });
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to verify OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -99,10 +107,14 @@ export default function LoginScreen() {
                     placeholder="Enter phone number"
                     keyboardType="phone-pad"
                     value={phone}
-                    onChangeText={setPhone}
+                    onChangeText={(text) => {
+                      setPhone(text);
+                      if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                    }}
                     maxLength={10}
                   />
                 </View>
+                {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
               </View>
 
               <Pressable
@@ -129,10 +141,14 @@ export default function LoginScreen() {
                   placeholder="Enter 6-digit OTP"
                   keyboardType="number-pad"
                   value={otp}
-                  onChangeText={setOtp}
+                  onChangeText={(text) => {
+                    setOtp(text);
+                    if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
+                  }}
                   maxLength={6}
                   secureTextEntry
                 />
+                {errors.otp && <Text style={styles.errorText}>{errors.otp}</Text>}
                 <Pressable onPress={() => setShowOtp(false)}>
                   <Text style={styles.changeNumber}>Change number</Text>
                 </Pressable>
@@ -226,6 +242,11 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginTop: 32,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+    marginTop: 6,
   },
   label: {
     fontSize: 14,

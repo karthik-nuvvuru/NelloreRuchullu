@@ -10,12 +10,20 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.websocket_manager import ConnectionManager
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, ValidationErrorException
 from app.models.delivery import Delivery, DeliveryStatus
 from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
 
 logger = logging.getLogger(__name__)
+
+VALID_DELIVERY_TRANSITIONS = {
+    DeliveryStatus.UNASSIGNED: {DeliveryStatus.ASSIGNED},
+    DeliveryStatus.ASSIGNED: {DeliveryStatus.PICKED_UP, DeliveryStatus.IN_TRANSIT},
+    DeliveryStatus.PICKED_UP: {DeliveryStatus.IN_TRANSIT},
+    DeliveryStatus.IN_TRANSIT: {DeliveryStatus.DELIVERED},
+    DeliveryStatus.DELIVERED: set(),
+}
 
 
 class DeliveryService:
@@ -96,7 +104,13 @@ class DeliveryService:
         if not delivery:
             raise NotFoundError("Delivery record not found")
 
-        delivery.status = DeliveryStatus(status)
+        new_status = DeliveryStatus(status)
+        if new_status not in VALID_DELIVERY_TRANSITIONS.get(delivery.status, set()):
+            raise ValidationErrorException(
+                f"Invalid status transition from '{delivery.status.value}' to '{new_status.value}'"
+            )
+
+        delivery.status = new_status
         now = datetime.now(timezone.utc)
 
         if status == "picked_up":

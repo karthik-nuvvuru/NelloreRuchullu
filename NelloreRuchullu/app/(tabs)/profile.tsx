@@ -9,15 +9,18 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { useUserStore, useOrderStore } from "../../src/store";
 import { TRANSLATIONS } from "../../src/data/mockData";
+import { ProtectedRoute } from "../../src/components/ProtectedRoute";
 
 type Language = "en" | "te";
 
 export default function ProfileScreen() {
-  const [language, setLanguage] = useState<Language>("en");
   const [notifications, setNotifications] = useState(true);
   const user = useUserStore((state) => state.user);
+  const language = useUserStore((state) => state.language);
+  const toggleLanguage = useUserStore((state) => state.toggleLanguage);
   const logout = useUserStore((state) => state.logout);
   const orders = useOrderStore((state) => state.orders);
 
@@ -29,7 +32,14 @@ export default function ProfileScreen() {
       "Are you sure you want to logout?",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: logout },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: () => {
+            logout();
+            router.replace("/login");
+          },
+        },
       ]
     );
   };
@@ -38,17 +48,17 @@ export default function ProfileScreen() {
     {
       icon: "👤",
       label: t.profile.account,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
     {
       icon: "📍",
       label: t.profile.addresses,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
     {
       icon: "💳",
       label: t.profile.payment,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
     {
       icon: "🔔",
@@ -66,131 +76,133 @@ export default function ProfileScreen() {
         { label: "English", value: "en" as Language },
         { label: "తెలుగు", value: "te" as Language },
       ],
-      onSelect: (val: Language) => setLanguage(val),
+      onSelect: () => toggleLanguage(),
     },
     {
       icon: "❓",
       label: t.profile.help,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
     {
       icon: "📜",
       label: t.profile.terms,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
     {
       icon: "🔒",
       label: t.profile.privacy,
-      onPress: () => {},
+      onPress: () => Alert.alert("Coming soon", "This feature is coming soon!"),
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Profile Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() || "👤"}
-            </Text>
+    <ProtectedRoute>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Profile Header */}
+          <View style={styles.header}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0).toUpperCase() || "👤"}
+              </Text>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user?.name || "Guest User"}</Text>
+              <Text style={styles.userPhone}>{user?.phone || "+91 9876543210"}</Text>
+              <Text style={styles.userEmail}>{user?.email || "user@example.com"}</Text>
+            </View>
           </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.name || "Guest User"}</Text>
-            <Text style={styles.userPhone}>{user?.phone || "+91 9876543210"}</Text>
-            <Text style={styles.userEmail}>{user?.email || "user@example.com"}</Text>
-          </View>
-        </View>
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{orders.length}</Text>
-            <Text style={styles.statLabel}>Orders</Text>
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{orders.length}</Text>
+              <Text style={styles.statLabel}>Orders</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>₹0</Text>
+              <Text style={styles.statLabel}>Wallet</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>⭐ 4.5</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>₹0</Text>
-            <Text style={styles.statLabel}>Wallet</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>⭐ 4.5</Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
-        </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <Pressable
-              key={index}
-              style={styles.menuItem}
-              onPress={item.onPress}
-              disabled={item.type === "toggle" || item.type === "selector"}
-            >
-              <View style={styles.menuItemLeft}>
-                <Text style={styles.menuIcon}>{item.icon}</Text>
-                <View>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                  {item.type === "selector" && (
-                    <Text style={styles.menuValue}>
-                      {language === "en" ? "English" : "తెలుగు"}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <View style={styles.menuItemRight}>
-                {item.type === "toggle" && (
-                  <Switch
-                    value={item.value}
-                    onValueChange={item.onToggle}
-                    trackColor={{ false: "#E5E7EB", true: "#FFB4A0" }}
-                    thumbColor={item.value ? "#FF4500" : "#FFFFFF"}
-                  />
-                )}
-                {item.type === "selector" && (
-                  <View style={styles.languageSelector}>
-                    {item.options?.map((opt) => (
-                      <Pressable
-                        key={opt.value}
-                        style={[
-                          styles.langOption,
-                          language === opt.value && styles.langOptionActive,
-                        ]}
-                        onPress={() => item.onSelect?.(opt.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.langOptionText,
-                            language === opt.value && styles.langOptionTextActive,
-                          ]}
-                        >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    ))}
+          {/* Menu Items */}
+          <View style={styles.menuSection}>
+            {menuItems.map((item, index) => (
+              <Pressable
+                key={index}
+                style={styles.menuItem}
+                onPress={item.onPress}
+                disabled={item.type === "toggle" || item.type === "selector"}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Text style={styles.menuIcon}>{item.icon}</Text>
+                  <View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    {item.type === "selector" && (
+                      <Text style={styles.menuValue}>
+                        {language === "en" ? "English" : "తెలుగు"}
+                      </Text>
+                    )}
                   </View>
-                )}
-                {!item.type && <Text style={styles.menuArrow}>›</Text>}
-              </View>
-            </Pressable>
-          ))}
-        </View>
+                </View>
+                <View style={styles.menuItemRight}>
+                  {item.type === "toggle" && (
+                    <Switch
+                      value={item.value}
+                      onValueChange={item.onToggle}
+                      trackColor={{ false: "#E5E7EB", true: "#FFB4A0" }}
+                      thumbColor={item.value ? "#FF4500" : "#FFFFFF"}
+                    />
+                  )}
+                  {item.type === "selector" && (
+                    <View style={styles.languageSelector}>
+                      {item.options?.map((opt) => (
+                        <Pressable
+                          key={opt.value}
+                          style={[
+                            styles.langOption,
+                            language === opt.value && styles.langOptionActive,
+                          ]}
+                          onPress={() => item.onSelect?.()}
+                        >
+                          <Text
+                            style={[
+                              styles.langOptionText,
+                              language === opt.value && styles.langOptionTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                  {!item.type && <Text style={styles.menuArrow}>›</Text>}
+                </View>
+              </Pressable>
+            ))}
+          </View>
 
-        {/* Logout Button */}
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutIcon}>🚪</Text>
-          <Text style={styles.logoutText}>Logout / లాగ్ అవుట్</Text>
-        </Pressable>
+          {/* Logout Button */}
+          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutIcon}>🚪</Text>
+            <Text style={styles.logoutText}>Logout / లాగ్ అవుట్</Text>
+          </Pressable>
 
-        {/* App Version */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>NelloreRuchullu v1.0.0</Text>
-          <Text style={styles.footerSubtext}>Made with ❤️ in Nellore, AP</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* App Version */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>NelloreRuchullu v1.0.0</Text>
+            <Text style={styles.footerSubtext}>Made with ❤️ in Nellore, AP</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </ProtectedRoute>
   );
 }
 

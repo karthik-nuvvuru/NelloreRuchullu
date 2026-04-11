@@ -38,11 +38,12 @@ class ReviewService:
             select(Review).where(
                 Review.order_id == order_id,
                 Review.user_id == user_id,
+                Review.menu_item_id == menu_item_id,
             )
         )
         if result.scalar_one_or_none():
             raise ValidationErrorException(
-                "You have already reviewed this order"
+                "You have already reviewed this item in this order"
             )
 
         review = Review(

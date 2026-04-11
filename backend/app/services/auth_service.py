@@ -82,7 +82,8 @@ class AuthService:
 
         expiry_sec = settings.access_token_expire_minutes * 60
         if self.redis:
-            await self.redis.blacklist_token(access_jti, expires_at=expiry_sec*2)
+            remaining = expiry_sec  # token expires in expiry_sec seconds from now
+            await self.redis.blacklist_token(access_jti, expires_at=remaining)
 
         return {
             "user_id": str(user.id),
@@ -193,7 +194,7 @@ class AuthService:
         except Exception:
             logger.warning(f"Could not send OTP via SMS: {code}")
 
-        if settings.environment == "development":
+        if settings.environment != "production":
             logger.info(f"DEV OTP for {phone}: {code}")
 
         return {"message": "OTP sent successfully", "phone": phone}
@@ -347,7 +348,7 @@ class AuthService:
             pass  # Token might already be expired
 
         if self.redis:
-            await self.redis.blacklist_token(refresh_token.split(".")[0], 86400*7)
+            await self.redis.blacklist_token(refresh_token.split(".")[1], 86400*7)
 
         logger.info(f"User {user_id} logged out")
         return {"message": "Logged out successfully"}

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Skeleton } from "@/components/SkeletonLoader";
 
 interface Category { id: string; name: string; image_url: string | null }
@@ -12,19 +12,31 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredItems, setFeaturedItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_BASE}/menu/categories`).then(r => r.json()).catch(() => []),
-      fetch(`${API_BASE}/menu?per_page=8`).then(r => r.json()).catch(() => ({ items: [] })),
+      apiFetch<Category[]>('/menu/categories'),
+      apiFetch<{ items: MenuItem[] }>('/menu', { params: { per_page: 8 } }),
     ]).then(([cats, menuData]) => {
       setCategories(Array.isArray(cats) ? cats : []);
       setFeaturedItems(Array.isArray(menuData?.items) ? menuData.items : []);
+      setError(null);
+    }).catch(() => {
+      setError("Failed to load menu data. Please refresh.");
+      setCategories([]);
+      setFeaturedItems([]);
     }).finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="flex flex-col gap-12 md:gap-16">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex justify-between items-center mx-6">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="font-bold hover:text-red-900">×</button>
+        </div>
+      )}
       {/* Hero */}
       <section className="relative min-h-[400px] md:h-[500px] bg-gradient-to-r from-orange-600 to-amber-500 flex items-center">
         <div className="max-w-6xl mx-auto px-6 text-white w-full">

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useCart } from "@/hooks/useCart";
 
 interface MenuItem {
@@ -40,7 +40,10 @@ export default function MenuItemDetailPage() {
   }, [item, addItem, quantity]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/menu/${params.id}`).then((r) => r.json()).then(setItem).finally(() => setLoading(false));
+    apiFetch<MenuItem>(`/menu/${params.id}`)
+      .then(setItem)
+      .catch(() => setItem(null))
+      .finally(() => setLoading(false));
   }, [params.id]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" /></div>;
@@ -68,7 +71,7 @@ export default function MenuItemDetailPage() {
           {item.preparation_time_minutes && <p className="text-gray-500 text-sm mb-4">⏱ Prep time: {item.preparation_time_minutes} min</p>}
           <div className="flex items-center gap-4 mt-6">
             <div className="flex items-center border rounded-lg overflow-hidden">
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-2 hover:bg-gray-100">−</button>
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-4 py-2 hover:bg-gray-100 disabled:opacity-30" disabled={quantity === 1}>−</button>
               <span className="px-4 py-2 font-medium min-w-[40px] text-center">{quantity}</span>
               <button onClick={() => setQuantity(quantity + 1)} className="px-4 py-2 hover:bg-gray-100">+</button>
             </div>

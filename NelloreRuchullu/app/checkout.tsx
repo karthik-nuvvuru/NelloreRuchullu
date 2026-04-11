@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,24 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCartStore, useOrderStore } from "../src/store";
+import { ProtectedRoute } from "../src/components/ProtectedRoute";
+import { orderApi, addressApi } from "../src/lib/api";
+import type { Address } from "../src/lib/api";
 
 type PaymentMethod = "upi" | "card" | "cod";
 
 export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
   const { items, clearCart } = useCartStore();
   const addOrder = useOrderStore((state) => state.addOrder);
 
@@ -24,67 +31,132 @@ export default function CheckoutScreen() {
   const deliveryFee = subtotal > 300 ? 0 : 40;
   const total = subtotal + deliveryFee;
 
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const fetchedAddresses = await addressApi.getAll();
+        setAddresses(fetchedAddresses);
+        const defaultAddr = fetchedAddresses.find((a) => a.isDefault) || fetchedAddresses[0];
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch addresses:", error);
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+    fetchAddresses();
+  }, []);
+
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+
   const handlePlaceOrder = async () => {
     setIsProcessing(true);
 
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const addressId = selectedAddressId || "default_address";
 
-    const order = {
-      id: "order_" + Date.now(),
-      items: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      })),
-      total,
-      subtotal,
-      deliveryFee,
-      status: "placed" as const,
-      restaurantId: items[0]?.restaurantId || "",
-      restaurantName: items[0]?.restaurantName || "",
-      deliveryAddress: "Koramanpally, Nellore",
-      paymentMethod,
-      createdAt: Date.now(),
-      estimatedDelivery: Date.now() + 45 * 60 * 1000,
-    };
+      // Call the backend API to create order
+      const createdOrder = await orderApi.create({
+        items: items.map((item) => ({
+          menuItemId: item.menuItemId || item.id,
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions,
+        })),
+        addressId,
+        paymentMethod,
+      });
 
-    addOrder(order);
-    clearCart();
-    setIsProcessing(false);
+      // Create local order representation for the store
+      const taxAmount = Math.round(subtotal * 0.05);
+      const localOrder = {
+        id: createdOrder.id,
+        restaurantId: items[0]?.restaurantId || "",
+        restaurantName: items[0]?.restaurantName || "",
+        items: items.map((item) => ({
+          id: item.id,
+          menuItemId: item.menuItemId || item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        subtotal,
+        taxAmount,
+        deliveryFee,
+        totalAmount: total,
+        status: "placed" as const,
+        deliveryAddress: "Koramanpally, Nellore",
+        paymentMethod,
+        paymentStatus: "pending" as const,
+        createdAt: Date.now(),
+        estimatedDelivery: Date.now() + 45 * 60 * 1000,
+      };
 
-    Alert.alert(
-      "Order Placed! 🎉",
-      "Your order has been placed successfully. You can track it in the Orders tab.",
-      [
-        {
-          text: "Track Order",
-          onPress: () => router.replace(`/track/${order.id}`),
-        },
-      ]
-    );
+      addOrder(localOrder);
+      clearCart();
+
+      Alert.alert(
+        "Order Placed! 🎉",
+        "Your order has been placed successfully. You can track it in the Orders tab.",
+        [
+          {
+            text: "Track Order",
+            onPress: () => router.replace(`/track/${createdOrder.id}`),
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert(
+        "Order Failed",
+        error instanceof Error ? error.message : "Failed to place order. Please try again."
+      );
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.title}>Checkout</Text>
-        </View>
+    <ProtectedRoute>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.title}>Checkout</Text>
+          </View>
 
         {/* Delivery Address */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📍 Delivery Address</Text>
-          <View style={styles.addressCard}>
-            <Text style={styles.addressName}>Home</Text>
-            <Text style={styles.addressText}>Koramanpally, Nellore, Andhra Pradesh - 524001</Text>
-            <Text style={styles.addressPhone}>+91 9876543210</Text>
-          </View>
+          {loadingAddresses ? (
+            <ActivityIndicator size="small" color="#FF4500" />
+          ) : addresses.length === 0 ? (
+            <View style={styles.addressCard}>
+              <Text style={styles.addressText}>No saved addresses. Your delivery address will be used.</Text>
+            </View>
+          ) : (
+            addresses.map((addr) => (
+              <Pressable
+                key={addr.id}
+                style={[
+                  styles.addressCard,
+                  selectedAddressId === addr.id && styles.addressCardSelected,
+                ]}
+                onPress={() => setSelectedAddressId(addr.id)}
+              >
+                <View style={styles.addressRadioRow}>
+                  <View style={[styles.radio, selectedAddressId === addr.id && styles.radioActive]}>
+                    {selectedAddressId === addr.id && <View style={styles.radioInner} />}
+                  </View>
+                  <Text style={styles.addressName}>{addr.label}</Text>
+                </View>
+                <Text style={styles.addressText}>{addr.fullAddress}</Text>
+              </Pressable>
+            ))
+          )}
         </View>
 
         {/* Order Summary */}
@@ -216,6 +288,7 @@ export default function CheckoutScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+    </ProtectedRoute>
   );
 }
 
@@ -260,6 +333,35 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    marginBottom: 8,
+  },
+  addressCardSelected: {
+    borderColor: "#FF4500",
+    backgroundColor: "#FFF5F0",
+  },
+  addressRadioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  radioActive: {
+    borderColor: "#FF4500",
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#FF4500",
   },
   addressName: {
     fontSize: 16,
@@ -375,24 +477,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9CA3AF",
     marginTop: 2,
-  },
-  radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioActive: {
-    borderColor: "#FF4500",
-  },
-  radioInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#FF4500",
   },
   safetyNote: {
     flexDirection: "row",

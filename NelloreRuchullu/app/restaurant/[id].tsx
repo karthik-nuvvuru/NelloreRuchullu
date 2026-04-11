@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,32 +15,64 @@ import { LinearGradient } from "expo-linear-gradient";
 import { restaurants, menuItems } from "../../src/data/mockData";
 import { useCartStore } from "../../src/store";
 import { FoodCard, Badge } from "../../src/components";
+import { restaurantApi, menuApi } from "../../src/lib/api";
 
 const { width } = Dimensions.get("window");
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<"menu" | "info">("menu");
+  const [restaurant, setRestaurant] = useState<any>(null);
+  const [menuItemsList, setMenuItemsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const addItem = useCartStore((state) => state.addItem);
   const cartItems = useCartStore((state) => state.items);
 
-  const restaurant = useMemo(() => {
-    return restaurants.find((r) => r.id === id);
-  }, [id]);
+  // Fetch restaurant from API on mount
+  useEffect(() => {
+    const fetchRestaurantData = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const restaurantData = await restaurantApi.getById(id);
+        setRestaurant(restaurantData);
 
-  const menuItemsList = useMemo(() => {
-    if (!restaurant) return [];
-    // If restaurant has menu IDs, filter by those
-    if (restaurant.menu && restaurant.menu.length > 0) {
-      return menuItems.filter((item) => restaurant.menu?.includes(item.id));
-    }
-    // Otherwise, show all items from this restaurant
-    return menuItems.filter((item) => item.restaurantId === restaurant.id);
-  }, [restaurant]);
+        // Fetch menu items for this restaurant
+        const menuData = await menuApi.getAll({ limit: 100 });
+        const filteredMenu = menuData.items.filter(
+          (item: any) => item.restaurantId === id || !item.restaurantId
+        );
+        setMenuItemsList(filteredMenu);
+      } catch (err) {
+        setError("Failed to load restaurant");
+        // Fall back to mock data
+        const mockRestaurant = restaurants.find((r) => r.id === id);
+        setRestaurant(mockRestaurant || null);
+        const mockMenu = menuItems.filter((item) => item.restaurantId === id);
+        setMenuItemsList(mockMenu);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRestaurantData();
+  }, [id]);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  if (!restaurant) {
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF4500" />
+          <Text style={styles.loadingText}>Loading restaurant...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !restaurant) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFound}>
@@ -288,6 +321,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF8F0",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 12,
   },
   notFound: {
     flex: 1,

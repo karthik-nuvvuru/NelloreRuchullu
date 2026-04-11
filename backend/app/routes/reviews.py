@@ -65,4 +65,5 @@ async def list_my_reviews(
     reviews = await review_service.get_user_reviews(
         db, current_user.sub, page, per_page
     )
-    return [ReviewResponse.model_validate(r) for r in reviews]
+    offset = (page - 1) * per_page
+    return [ReviewResponse.model_validate(r) for r in reviews[offset:offset + per_page]]

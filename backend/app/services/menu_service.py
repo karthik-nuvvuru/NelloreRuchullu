@@ -104,6 +104,17 @@ class MenuService:
         return list(result.scalars().all())
 
     async def create_category(self, db, data: dict) -> Category:
+        # Check for existing category with same name (case-insensitive)
+        name = data.get("name")
+        if name:
+            existing = await db.execute(
+                select(Category).where(Category.name.ilike(name))
+            )
+            if existing.scalar_one_or_none():
+                from app.exceptions import ValidationErrorException
+                raise ValidationErrorException(
+                    f"Category with name '{name}' already exists"
+                )
         cat = Category(**data)
         db.add(cat)
         await db.flush()

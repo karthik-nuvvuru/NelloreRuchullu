@@ -23,6 +23,7 @@ from app.models.menu_item import MenuItem
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
 from app.models.payment import Payment, PaymentMethod, PaymentStatus
+from app.services.payment_service import PaymentService
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,14 @@ DELIVERY_FEE = Decimal("40.00")
 class OrderService:
     def __init__(
         self, redis_client: RedisClient | None = None,
-        ws_manager: ConnectionManager | None = None
+        ws_manager: ConnectionManager | None = None,
+        coupon_service=None,
+        payment_service: PaymentService | None = None,
     ):
         self.redis = redis_client
         self.ws_manager = ws_manager
+        self.coupon_service = coupon_service
+        self.payment_service = payment_service
 
     def _generate_order_number(self) -> str:
         """Generate order number like NR-000001"""
@@ -64,7 +69,7 @@ class OrderService:
 
         for cart_item in cart.items:
             result = await db.execute(
-                select(MenuItem).where(MenuItem.id == cart_item.menu_item_id)
+                select(MenuItem).where(MenuItem.id == cart_item.menu_item_id).with_for_update()
             )
             menu_item = result.scalar_one_or_none()
             if not menu_item or not menu_item.is_available:
@@ -97,6 +102,15 @@ class OrderService:
 
         tax = round(subtotal * TAX_RATE, 2)
         discount = Decimal("0")
+
+        # Calculate discount if coupon code is provided
+        if coupon_code and self.coupon_service:
+            coupon_result = await self.coupon_service.validate_coupon(
+                db, coupon_code, float(subtotal)
+            )
+            if coupon_result.get("valid"):
+                discount = Decimal(str(coupon_result["discounted_amount"]))
+
         total = subtotal + tax + DELIVERY_FEE - discount
 
         payment_method_enum = PaymentMethod(payment_method)
@@ -105,6 +119,7 @@ class OrderService:
             order_number=self._generate_order_number(),
             subtotal=float(subtotal),
             tax_amount=float(tax),
+            discount_amount=float(discount),
             total_amount=float(total),
             delivery_fee=float(DELIVERY_FEE),
             delivery_address_id=address_id,
@@ -114,6 +129,10 @@ class OrderService:
         db.add(order)
         await db.flush()
         await db.refresh(order, ["id"])
+
+        # Increment coupon used_count after order is successfully created
+        if coupon_code and discount > 0 and self.coupon_service:
+            await self.coupon_service.apply_coupon(db, coupon_code)
 
         for oi in order_items:
             oi.order_id = order.id
@@ -191,7 +210,10 @@ class OrderService:
 
     async def get_admin_order(self, db, order_id: UUID) -> Order:
         result = await db.execute(
-            select(Order).where(Order.id == order_id).options(
+            select(Order).where(
+                Order.id == order_id,
+                Order.cancelled_at.is_(None),
+            ).options(
                 selectinload(Order.items),
                 selectinload(Order.delivery_record),
                 selectinload(Order.payment),
@@ -265,12 +287,17 @@ class OrderService:
         if not order:
             raise NotFoundError("Order not found")
 
+        new_status_enum = OrderStatus(new_status)
         if order.status == OrderStatus.CANCELLED:
             raise ValidationErrorException("Cannot update cancelled order")
         if order.status == OrderStatus.DELIVERED:
             raise ValidationErrorException("Order is already delivered")
+        if new_status_enum not in VALID_ORDER_TRANSITIONS.get(order.status, set()):
+            raise ValidationErrorException(
+                f"Invalid status transition from '{order.status.value}' to '{new_status_enum.value}'"
+            )
 
-        order.status = OrderStatus(new_status)
+        order.status = new_status_enum
 
         delivery_status_map = {
             OrderStatus.CONFIRMED: DeliveryStatus.ASSIGNED,
@@ -316,7 +343,7 @@ class OrderService:
         result = await db.execute(
             select(Order).where(
                 Order.id == order_id, Order.user_id == user_uuid
-            )
+            ).options(selectinload(Order.payment))
         )
         order = result.scalar_one_or_none()
         if not order:
@@ -330,6 +357,18 @@ class OrderService:
         order.status = OrderStatus.CANCELLED
         order.cancelled_at = datetime.now(timezone.utc)
         order.cancelled_reason = reason
+
+        # Initiate refund for online paid orders
+        if (
+            order.payment and
+            order.payment.payment_method == PaymentMethod.ONLINE and
+            order.payment.status == PaymentStatus.SUCCEEDED and
+            self.payment_service
+        ):
+            try:
+                await self.payment_service.initiate_refund(db, order.id)
+            except Exception as e:
+                logger.warning(f"Refund initiation failed for order {order_id}: {e}")
 
         await self._publish_event("order.cancelled", {
             "order_id": str(order_id),

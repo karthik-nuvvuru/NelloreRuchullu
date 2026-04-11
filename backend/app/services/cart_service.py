@@ -51,18 +51,19 @@ class CartService:
                 select(MenuItem).where(MenuItem.id == ci.menu_item_id)
             )
             menu_item = result.scalar_one_or_none()
-            if not menu_item or not menu_item.is_available:
-                continue
-            total_price = Decimal(str(menu_item.price)) * ci.quantity
-            subtotal += total_price
+            available = menu_item is not None and menu_item.is_available
+            total_price = Decimal(str(menu_item.price)) * ci.quantity if menu_item else Decimal("0")
+            if available:
+                subtotal += total_price
             items_response.append({
                 "id": str(ci.id),
                 "menu_item_id": str(ci.menu_item_id),
-                "item_name": menu_item.name,
-                "price": menu_item.price,
+                "item_name": menu_item.name if menu_item else "Unknown",
+                "price": menu_item.price if menu_item else None,
                 "quantity": ci.quantity,
                 "special_instructions": ci.special_instructions,
                 "total_price": float(total_price),
+                "available": available,
             })
 
         tax = round(subtotal * TAX_RATE, 2)

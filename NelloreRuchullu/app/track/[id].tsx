@@ -5,11 +5,14 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useOrderStore } from "../../src/store";
 import { Badge } from "../../src/components";
+import { ProtectedRoute } from "../../src/components/ProtectedRoute";
+import { orderApi, cartApi } from "../../src/lib/api";
 
 type OrderStep = "placed" | "confirmed" | "preparing" | "outForDelivery" | "delivered";
 
@@ -24,9 +27,48 @@ const STEPS: { status: OrderStep; label: string; emoji: string }[] = [
 export default function TrackOrderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const orders = useOrderStore((state) => state.orders);
+  const setCurrentOrder = useOrderStore((state) => state.setCurrentOrder);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [loading, setLoading] = useState(true);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
-  const order = orders.find((o) => o.id === id);
+  const handleReorder = async () => {
+    if (!order || reordering) return;
+    setReordering(true);
+    try {
+      for (const item of order.items) {
+        await cartApi.addItem({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions,
+        });
+      }
+      router.push("/cart");
+    } catch (error) {
+      console.error("Failed to reorder:", error);
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  // Fetch order from API on mount
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        setOrderError(null);
+        const fetchedOrder = await orderApi.getById(id);
+        setCurrentOrder(fetchedOrder as any);
+      } catch (error) {
+        setOrderError("Failed to fetch order details");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrder();
+  }, [id]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -35,12 +77,28 @@ export default function TrackOrderScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fall back to store data if API failed
+  const storeOrder = orders.find((o) => o.id === id);
+  const order = storeOrder;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF4500" />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!order) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFound}>
           <Text style={styles.notFoundEmoji}>📦</Text>
           <Text style={styles.notFoundText}>Order not found</Text>
+          {orderError && <Text style={styles.errorText}>{orderError}</Text>}
           <Pressable onPress={() => router.back()}>
             <Text style={styles.backLink}>Go Back</Text>
           </Pressable>
@@ -74,15 +132,16 @@ export default function TrackOrderScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.title}>Track Order</Text>
-        </View>
+    <ProtectedRoute>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.title}>Track Order</Text>
+          </View>
 
         {/* ETA Banner */}
         {order.status !== "delivered" && order.status !== "cancelled" && eta !== null && (
@@ -198,7 +257,7 @@ export default function TrackOrderScreen() {
             <View style={styles.paymentDivider} />
             <View style={styles.paymentRow}>
               <Text style={styles.paymentTotalLabel}>Total Paid</Text>
-              <Text style={styles.paymentTotalValue}>₹{order.total.toFixed(2)}</Text>
+              <Text style={styles.paymentTotalValue}>₹{order.totalAmount.toFixed(2)}</Text>
             </View>
             <View style={styles.paymentDivider} />
             <View style={styles.paymentRow}>
@@ -227,8 +286,12 @@ export default function TrackOrderScreen() {
       {/* Bottom Actions */}
       {order.status === "delivered" && (
         <View style={styles.bottomActions}>
-          <Pressable style={styles.reorderButton}>
-            <Text style={styles.reorderText}>🔄 Reorder</Text>
+          <Pressable style={styles.reorderButton} onPress={handleReorder} disabled={reordering}>
+            {reordering ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.reorderText}>🔄 Reorder</Text>
+            )}
           </Pressable>
           <Pressable style={styles.helpOrderButton}>
             <Text style={styles.helpOrderText}>Rate Order</Text>
@@ -236,6 +299,7 @@ export default function TrackOrderScreen() {
         </View>
       )}
     </SafeAreaView>
+    </ProtectedRoute>
   );
 }
 
@@ -261,6 +325,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#FF4500",
     marginTop: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginTop: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#EF4444",
+    marginTop: 8,
   },
   header: {
     flexDirection: "row",

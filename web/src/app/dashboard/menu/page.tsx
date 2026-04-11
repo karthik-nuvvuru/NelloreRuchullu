@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { apiFetch, API_BASE } from "@/lib/api";
+import { getToken, getUser } from "@/lib/auth";
 
 export default function AdminMenuPage() {
   const router = useRouter();
@@ -14,27 +14,35 @@ export default function AdminMenuPage() {
 
   useEffect(() => {
     if (!token) { router.push("/auth/login"); return; }
-    fetch(`${API_BASE}/menu?per_page=50`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => setItems(d.items || [])).finally(() => setLoading(false));
+    const user = getUser();
+    if (user?.role !== "admin") {
+      alert("Access denied: Admin only");
+      router.push("/");
+      return;
+    }
+    apiFetch<{ items: any[] }>('/menu', { params: { per_page: 50 }, headers: { Authorization: `Bearer ${token}` } })
+      .then((d) => setItems(d.items || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, [token, router]);
 
   const handleCreate = async () => {
     if (!form.name || !form.price) { alert("Name and price are required"); return; }
-    const res = await fetch(`${API_BASE}/menu`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...form, price: parseFloat(form.price) }),
-    });
-    if (!res.ok) return;
-    const newItem = await res.json();
-    setItems((prev) => [newItem, ...prev]);
-    setShowForm(false);
-    setForm({ name: "", description: "", price: "", is_vegetarian: false, is_available: true });
+    try {
+      const newItem = await apiFetch<any>('/menu', {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...form, price: parseFloat(form.price) }),
+      });
+      setItems((prev) => [newItem, ...prev]);
+      setShowForm(false);
+      setForm({ name: "", description: "", price: "", is_vegetarian: false, is_available: true });
+    } catch (err) { alert("Failed to create item"); }
   };
 
   const handleDelete = async (itemId: string) => {
     if (!confirm("Delete this item?")) return;
-    await fetch(`${API_BASE}/menu/${itemId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/menu/${itemId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   };
 

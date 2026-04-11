@@ -161,7 +161,7 @@ async def cancel_order(
 ):
     order = await order_service.cancel_order(
         db, order_id, current_user.sub,
-        reason=body.reason if body else None,
+        reason=body.reason if body and body.reason else "Cancelled by user",
     )
     return {
         "id": str(order.id),

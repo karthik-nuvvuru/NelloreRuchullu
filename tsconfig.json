@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "NelloreRuchullu Monorepo",
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "references": [
+    { "path": "./web" },
+    { "path": "./NelloreRuchullu" }
+  ]
+}

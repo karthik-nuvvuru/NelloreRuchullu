@@ -16,6 +16,7 @@ from app.schemas.user import (
     UserListItem,
     UserResponse,
 )
+from app.schemas.address import AddressCreate
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -67,46 +68,78 @@ from app.models.address import Address
 async def list_addresses(
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
 ):
+    from sqlalchemy import func
+    count_result = await db.execute(
+        select(func.count(Address.id)).where(
+            Address.user_id == current_user.sub,
+            Address.deleted_at.is_(None),
+        )
+    )
+    total = count_result.scalar() or 0
+
     result = await db.execute(
-        select(Address).where(Address.user_id == current_user.sub)
+        select(Address).where(
+            Address.user_id == current_user.sub,
+            Address.deleted_at.is_(None),
+        ).order_by(Address.is_default.desc(), Address.created_at.desc())
+        .offset(skip).limit(limit)
     )
     addresses = result.scalars().all()
-    return [
-        {
-            "id": str(a.id),
-            "user_id": str(a.user_id),
-            "address_line1": a.address_line1,
-            "address_line2": a.address_line2,
-            "city": a.city,
-            "state": a.state,
-            "country": a.country,
-            "pincode": a.pincode,
-            "landmark": a.landmark,
-            "latitude": a.latitude,
-            "longitude": a.longitude,
-            "address_type": a.address_type.value,
-            "is_default": a.is_default,
-        }
-        for a in addresses
-    ]
+    return {
+        "items": [
+            {
+                "id": str(a.id),
+                "user_id": str(a.user_id),
+                "address_line1": a.address_line1,
+                "address_line2": a.address_line2,
+                "city": a.city,
+                "state": a.state,
+                "country": a.country,
+                "pincode": a.pincode,
+                "landmark": a.landmark,
+                "latitude": a.latitude,
+                "longitude": a.longitude,
+                "address_type": a.address_type.value,
+                "is_default": a.is_default,
+            }
+            for a in addresses
+        ],
+        "pagination": {
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+        },
+    }
 
 
 @router.post("/addresses")
 async def create_address(
-    body: dict,
+    body: AddressCreate,
     db: AsyncSession = Depends(get_db),
     current_user: TokenPayload = Depends(get_current_user),
 ):
     from app.models.address import Address
-    address = Address(user_id=current_user.sub, **body)
+    address = Address(user_id=current_user.sub, **body.model_dump())
     db.add(address)
     await db.flush()
     await db.refresh(address)
     return {
         "id": str(address.id),
         "user_id": str(address.user_id),
-        **{k: v for k, v in body.items() if k != "id"},
+        "address_line1": address.address_line1,
+        "address_line2": address.address_line2,
+        "city": address.city,
+        "state": address.state,
+        "country": address.country,
+        "pincode": address.pincode,
+        "landmark": address.landmark,
+        "latitude": address.latitude,
+        "longitude": address.longitude,
+        "address_type": address.address_type.value,
+        "is_default": address.is_default,
     }
 
 
@@ -123,8 +156,12 @@ async def update_address(
     address = result.scalar_one_or_none()
     if not address:
         raise NotFoundError("Address not found")
+    allowed = {
+        "address_line1", "address_line2", "city", "state", "country",
+        "pincode", "landmark", "latitude", "longitude", "address_type", "is_default",
+    }
     for k, v in body.items():
-        if v is not None and hasattr(address, k):
+        if k in allowed and v is not None:
             setattr(address, k, v)
     await db.flush()
     return {"message": "Address updated", "id": str(address.id)}

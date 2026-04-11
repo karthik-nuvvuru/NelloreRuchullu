@@ -30,28 +30,39 @@ const HYDERABAD_COORDS = {
 export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
 
   // MealDB API - Fetch chicken biryani meals
   const { meals, loading, error } = useMealsByCategory("Chicken");
 
-  // Transform MealDB meals to menu items
-  const apiMenuItems = meals.slice(0, 12).map((meal, i) => transformMealToMenuItem(meal, "Biryani"));
+  // Transform backend menu items to app format
+  const apiMenuItems = meals.slice(0, 12).map((meal) => transformMealToMenuItem(meal));
 
   // Mock restaurants (from local data + MealDB images)
   const allRestaurants = restaurants.slice(0, 5).map((r, i) => ({
     ...r,
-    image: meals[i]?.strMealThumb || r.image,
+    image: meals[i]?.image || r.image,
   }));
+
+  useEffect(() => {
+    if (!loading) {
+      // Small delay to ensure data is ready
+      const timer = setTimeout(() => setIsLoading(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   const popularItems = getPopularItems();
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setRefreshing(false);
+    setIsLoading(false);
   }, []);
 
   const handleAddToCart = (item: any) => {
@@ -77,6 +88,13 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      {/* Loading State */}
+      {isLoading ? (
+        <View style={styles.initialLoadingContainer}>
+          <ActivityIndicator size="large" color="#FF4500" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      ) : (
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -229,6 +247,7 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
       </ScrollView>
+      )}
 
       {/* Floating Cart Button */}
       {cartItemCount > 0 && (
@@ -318,6 +337,11 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: "#FF4500",
+  },
+  initialLoadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchContainer: {
     paddingHorizontal: 16,

@@ -4,6 +4,7 @@ import { cartApi, menuApi } from "../lib/api";
 
 export interface CartItem {
   id: string;
+  menuItemId: string;
   name: string;
   price: number;
   quantity: number;
@@ -98,6 +99,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         items: [
           {
             id: item.id,
+            menuItemId: item.id,
             name: item.name,
             price: item.price,
             quantity: 1,
@@ -123,6 +125,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             ...currentItems,
             {
               id: item.id,
+              menuItemId: item.id,
               name: item.name,
               price: item.price,
               quantity: 1,
@@ -300,24 +303,28 @@ export const useUserStore = create<UserState>((set, get) => ({
 }));
 
 // Order Store
-interface OrderItem {
+export interface OrderItem {
   id: string;
+  menuItemId: string;
   name: string;
   price: number;
   quantity: number;
+  specialInstructions?: string;
 }
 
-interface Order {
+export interface Order {
   id: string;
   restaurantId: string;
   restaurantName: string;
   items: OrderItem[];
   subtotal: number;
+  taxAmount: number;
   deliveryFee: number;
-  total: number;
-  status: "placed" | "confirmed" | "preparing" | "outForDelivery" | "delivered" | "cancelled";
+  totalAmount: number;
   deliveryAddress: string;
   paymentMethod: "upi" | "card" | "cod";
+  paymentStatus: "pending" | "initiated" | "completed" | "failed";
+  status: "placed" | "confirmed" | "preparing" | "outForDelivery" | "delivered" | "cancelled";
   createdAt: number;
   estimatedDelivery: number;
 }
@@ -325,6 +332,8 @@ interface Order {
 interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
+  setOrders: (orders: Order[]) => void;
+  appendOrders: (orders: Order[]) => void;
   addOrder: (order: Order) => void;
   updateOrderStatus: (id: string, status: Order["status"]) => void;
   setCurrentOrder: (order: Order | null) => void;
@@ -333,6 +342,14 @@ interface OrderState {
 export const useOrderStore = create<OrderState>((set, get) => ({
   orders: [],
   currentOrder: null,
+
+  setOrders: (orders: Order[]) => {
+    set({ orders });
+  },
+
+  appendOrders: (orders: Order[]) => {
+    set({ orders: [...get().orders, ...orders] });
+  },
 
   addOrder: (order: Order) => {
     set({ orders: [...get().orders, order], currentOrder: order });

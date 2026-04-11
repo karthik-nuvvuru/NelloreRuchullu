@@ -1,5 +1,6 @@
 // API hooks for NelloreRuchullu - Real Backend Integration
 import { useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiFetch, authApi, menuApi, orderApi, couponApi, cartApi, ApiError } from "../lib/api";
 import type { User, MenuItem, Order, CartResponse } from "../lib/api";
 
@@ -9,18 +10,15 @@ export { ApiError };
 
 // Auth token storage
 export async function saveAuthToken(token: string, user: User): Promise<void> {
-  import AsyncStorage from "@react-native-async-storage/async-storage";
   await AsyncStorage.setItem("auth_token", token);
   await AsyncStorage.setItem("user", JSON.stringify(user));
 }
 
 export async function getAuthToken(): Promise<string | null> {
-  import AsyncStorage from "@react-native-async-storage/async-storage";
   return AsyncStorage.getItem("auth_token");
 }
 
 export async function clearAuthToken(): Promise<void> {
-  import AsyncStorage from "@react-native-async-storage/async-storage";
   await AsyncStorage.removeItem("auth_token");
   await AsyncStorage.removeItem("user");
 }

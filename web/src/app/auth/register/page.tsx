@@ -10,12 +10,24 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "", first_name: "", last_name: "", phone: "" });
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string; password?: string }>({});
+
+  const validateForm = (): boolean => {
+    const errs: typeof fieldErrors = {};
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!form.email || !emailRe.test(form.email)) errs.email = "Enter a valid email address";
+    if (form.phone && !/^\+?[\d\s-]{10,}$/.test(form.phone.replace(/\s/g, ""))) errs.phone = "Phone must have 10+ digits";
+    if (!form.password || form.password.length < 8) errs.password = "Password must be at least 8 characters";
+    else if (!/[A-Z]/.test(form.password) || !/[0-9]/.test(form.password)) errs.password = "Password needs uppercase letter and number";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    if (form.password.length < 8) { setError("Password must be at least 8 characters"); setLoading(false); return; }
+    if (!validateForm()) { setLoading(false); return; }
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
@@ -57,18 +69,21 @@ export default function RegisterPage() {
             <input type="email" value={form.email} onChange={update("email")}
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="john@example.com" required data-testid="input-email" />
+              {fieldErrors.email && <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Phone (optional)</label>
             <input type="tel" value={form.phone} onChange={update("phone")}
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="+919999999999" data-testid="input-phone" />
+              {fieldErrors.phone && <p className="text-red-500 text-sm mt-1">{fieldErrors.phone}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
             <input type="password" value={form.password} onChange={update("password")}
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               placeholder="Min 8 characters" required minLength={8} data-testid="input-password" />
+              {fieldErrors.password && <p className="text-red-500 text-sm mt-1">{fieldErrors.password}</p>}
           </div>
           <button type="submit" disabled={loading}
             className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50"

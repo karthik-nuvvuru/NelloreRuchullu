@@ -46,33 +46,6 @@ export interface MenuItem {
   updated_at?: string;
 }
 
-// Helper to normalize API response to consistent format
-export function normalizeMenuItem(item: any): MenuItem {
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description || null,
-    price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
-    category: item.category_name || item.category || '',
-    category_name: item.category_name || null,
-    image: item.image_url || item.image || null,
-    image_url: item.image_url || null,
-    isVegetarian: item.is_vegetarian ?? item.isVegetarian ?? false,
-    is_vegetarian: item.is_vegetarian ?? false,
-    isAvailable: item.is_available ?? item.isAvailable ?? true,
-    is_available: item.is_available ?? true,
-    spiceLevel: item.spice_level || item.spiceLevel,
-    rating: item.rating,
-    reviewCount: item.review_count || item.reviewCount,
-    prepTime: item.prep_time || item.prepTime,
-    tags: item.tags,
-    createdAt: item.created_at || item.createdAt,
-    created_at: item.created_at,
-    updatedAt: item.updated_at || item.updatedAt,
-    updated_at: item.updated_at,
-  };
-}
-
 export interface CartItem {
   menuItem: MenuItem;
   quantity: number;

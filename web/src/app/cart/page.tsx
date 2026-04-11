@@ -32,7 +32,8 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = 40;
+  // TODO: Fetch from backend (e.g., GET /config delivery_fee)
+const deliveryFee = 40;
   const grandTotal = total + tax + deliveryFee;
 
   return (

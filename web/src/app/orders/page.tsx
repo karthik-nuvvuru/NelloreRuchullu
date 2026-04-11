@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 interface Order { id: string; order_number: string; status: string; total_amount: string; created_at: string; items: { name: string; quantity: number }[] }
@@ -21,23 +21,43 @@ export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const token = getToken();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const token = getToken();
     if (!token) { router.push("/auth/login"); return; }
-    fetch(`${API_BASE}/orders/my`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => setOrders(d.orders || d.items || [])).finally(() => setLoading(false));
-  }, [token, router]);
+    apiFetch<{ orders: Order[] }>('/orders/my', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((d) => {
+        if (!d.orders) { setError("Invalid response from server."); setOrders([]); return; }
+        setOrders(d.orders); setError(null);
+      })
+      .catch(() => { setError("Failed to load orders. Please refresh."); setOrders([]); })
+      .finally(() => setLoading(false));
+  }, [router]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" /></div>;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex justify-between items-center mb-4">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="font-bold hover:text-red-900">×</button>
+        </div>
+      )}
       <h1 className="text-3xl font-bold mb-6">My Orders</h1>
       {orders.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p>No orders yet</p>
-          <Link href="/menu" className="text-orange-600 hover:underline">Browse menu</Link>
+        <div className="text-center py-16">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <p className="text-gray-400 text-lg mb-4">No orders yet</p>
+          <Link href="/menu" className="inline-flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors">
+            <span>Start ordering</span>
+            <span>→</span>
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">
