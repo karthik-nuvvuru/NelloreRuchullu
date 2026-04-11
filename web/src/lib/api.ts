@@ -118,10 +118,10 @@ export class ApiError extends Error {
 
 // Auth APIs
 export const authApi = {
-  login: (email: string, password: string) =>
+  login: (emailOrPhone: string, password: string) =>
     apiFetch<{ token: string; user: import('@/types').User }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email_or_phone: emailOrPhone, password }),
     }),
 
   requestOtp: (phone: string) =>

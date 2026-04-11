@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user, require_role, TokenPayload
 from app.database import get_db
 from app.dependencies import get_delivery_service
-from app.exceptions import NotFoundError
+from app.exceptions import AuthorizationError, NotFoundError
 from app.models.delivery import Delivery
+from app.models.order import Order
 from app.services.delivery_service import DeliveryService
 
 router = APIRouter(prefix="/delivery", tags=["Delivery"])
@@ -21,13 +22,20 @@ router = APIRouter(prefix="/delivery", tags=["Delivery"])
 async def track_order(
     order_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: TokenPayload = Depends(get_current_user),
+    current_user: TokenPayload = Depends(get_current_user),
     delivery_service: DeliveryService = Depends(get_delivery_service),
 ):
+    # Verify user owns the order (or is admin/vendor/delivery)
+    if current_user.role not in ("admin", "vendor", "delivery"):
+        result = await db.execute(
+            select(Order).where(Order.id == order_id, Order.user_id == UUID(current_user.sub))
+        )
+        if not result.scalar_one_or_none():
+            raise AuthorizationError("Access denied")
     return await delivery_service.get_delivery(db, order_id)
 
 
-@router.post("/assign")
+@router.post("/assign/{order_id}")
 async def assign_delivery(
     order_id: UUID,
     partner_id: UUID | None = None,
@@ -50,7 +58,7 @@ async def update_delivery_status(
     delivery_id: UUID,
     status: str,
     db: AsyncSession = Depends(get_db),
-    _: TokenPayload = Depends(get_current_user),
+    _: TokenPayload = Depends(require_role(["admin", "vendor", "delivery"])),
     delivery_service: DeliveryService = Depends(get_delivery_service),
 ):
     return await delivery_service.update_status(db, delivery_id, status)

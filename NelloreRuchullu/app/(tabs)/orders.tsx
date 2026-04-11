@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,18 +6,103 @@ import {
   Pressable,
   ScrollView,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useOrderStore, useUserStore } from "../../src/store";
+import { useOrderStore, useUserStore, Order } from "../../src/store";
 import { EmptyState, Badge } from "../../src/components";
+import { ProtectedRoute } from "../../src/components/ProtectedRoute";
+import { orderApi } from "../../src/lib/api";
+import type { Order as ApiOrder, OrderItem as ApiOrderItem } from "../../src/lib/api";
 
 type OrderStatus = "active" | "completed" | "cancelled";
 
 export default function OrdersScreen() {
   const [filter, setFilter] = useState<OrderStatus>("active");
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const orders = useOrderStore((state) => state.orders);
+  const setOrders = useOrderStore((state) => state.setOrders);
+  const appendOrders = useOrderStore((state) => state.appendOrders);
   const user = useUserStore((state) => state.user);
+
+  // Transform API order to store order
+  const transformApiOrder = (apiOrder: ApiOrder): Order => {
+    const statusMap: Record<string, Order["status"]> = {
+      PENDING: "placed",
+      CONFIRMED: "confirmed",
+      PREPARING: "preparing",
+      READY_FOR_PICKUP: "preparing",
+      OUT_FOR_DELIVERY: "outForDelivery",
+      DELIVERED: "delivered",
+      CANCELLED: "cancelled",
+    };
+
+    const apiStatus = apiOrder.status;
+    const storeStatus = statusMap[apiStatus] || "placed";
+
+    return {
+      id: apiOrder.id,
+      restaurantId: "",
+      restaurantName: apiOrder.deliveryAddress?.fullAddress || "Nellore Ruchullu",
+      items: apiOrder.items.map((item: ApiOrderItem) => ({
+        id: item.id,
+        menuItemId: item.menuItemId,
+        name: item.name,
+        price: item.unitPrice,
+        quantity: item.quantity,
+        specialInstructions: item.specialInstructions,
+      })),
+      subtotal: apiOrder.subtotal,
+      taxAmount: apiOrder.taxAmount,
+      deliveryFee: apiOrder.deliveryFee,
+      totalAmount: apiOrder.totalAmount,
+      status: storeStatus,
+      deliveryAddress: apiOrder.deliveryAddress?.fullAddress || "",
+      paymentMethod: apiOrder.paymentMethod,
+      paymentStatus: apiOrder.paymentStatus,
+      createdAt: new Date(apiOrder.createdAt).getTime(),
+      estimatedDelivery: new Date(apiOrder.createdAt).getTime() + 45 * 60 * 1000,
+    };
+  };
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        const response = await orderApi.getAll({ page: 1, limit: 20 });
+        const transformedOrders = response.orders.map(transformApiOrder);
+        setOrders(transformedOrders);
+        setPage(1);
+        setHasMore(transformedOrders.length === 20);
+      } catch (error) {
+        console.error("Failed to fetch orders:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  const loadMoreOrders = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const response = await orderApi.getAll({ page: nextPage, limit: 20 });
+      const transformedOrders = response.orders.map(transformApiOrder);
+      appendOrders(transformedOrders);
+      setPage(nextPage);
+      setHasMore(transformedOrders.length === 20);
+    } catch (error) {
+      console.error("Failed to load more orders:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filteredOrders = orders.filter((order) => {
     if (filter === "active") {
@@ -77,100 +162,120 @@ export default function OrdersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>My Orders 📋</Text>
-        {user && (
-          <Text style={styles.userGreeting}>Hi, {user.name.split(" ")[0]}!</Text>
-        )}
-      </View>
+    <ProtectedRoute>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>My Orders 📋</Text>
+          {user && (
+            <Text style={styles.userGreeting}>Hi, {user?.name?.split(" ")?.[0] || "User"}!</Text>
+          )}
+        </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {(["active", "completed", "cancelled"] as OrderStatus[]).map((status) => (
-          <Pressable
-            key={status}
-            style={[styles.filterTab, filter === status && styles.filterTabActive]}
-            onPress={() => setFilter(status)}
-          >
-            <Text style={[styles.filterText, filter === status && styles.filterTextActive]}>
-              {status === "active" ? "🟢 Active" : status === "completed" ? "✅ Completed" : "❌ Cancelled"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          {(["active", "completed", "cancelled"] as OrderStatus[]).map((status) => (
+            <Pressable
+              key={status}
+              style={[styles.filterTab, filter === status && styles.filterTabActive]}
+              onPress={() => setFilter(status)}
+            >
+              <Text style={[styles.filterText, filter === status && styles.filterTextActive]}>
+                {status === "active" ? "🟢 Active" : status === "completed" ? "✅ Completed" : "❌ Cancelled"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {filteredOrders.length === 0 ? (
-          <EmptyState
-            emoji={filter === "active" ? "📦" : filter === "completed" ? "✅" : "❌"}
-            title={filter === "active" ? "No active orders" : filter === "completed" ? "No completed orders" : "No cancelled orders"}
-            subtitle={
-              filter === "active"
-                ? "Your active orders will appear here"
-                : "Past orders will be shown here"
-            }
-            actionLabel="Order Now"
-            onAction={() => router.push("/(tabs)")}
-          />
-        ) : (
-          <View style={styles.ordersList}>
-            {filteredOrders.map((order) => (
-              <Pressable
-                key={order.id}
-                style={styles.orderCard}
-                onPress={() => router.push(`/track/${order.id}`)}
-              >
-                {/* Restaurant Info */}
-                <View style={styles.restaurantRow}>
-                  <Text style={styles.restaurantEmoji}>🏪</Text>
-                  <Text style={styles.restaurantName}>{order.restaurantName}</Text>
-                </View>
-
-                {/* Order Items */}
-                <Text style={styles.orderItems}>
-                  {order.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}
-                </Text>
-
-                {/* Order Meta */}
-                <View style={styles.orderMeta}>
-                  <View style={styles.metaLeft}>
-                    <Text style={styles.orderId}>Order #{order.id.slice(-6).toUpperCase()}</Text>
-                    <Text style={styles.orderDate}>
-                      {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF4500" />
+              <Text style={styles.loadingText}>Loading orders...</Text>
+            </View>
+          ) : filteredOrders.length === 0 ? (
+            <EmptyState
+              emoji={filter === "active" ? "📦" : filter === "completed" ? "✅" : "❌"}
+              title={filter === "active" ? "No active orders" : filter === "completed" ? "No completed orders" : "No cancelled orders"}
+              subtitle={
+                filter === "active"
+                  ? "Your active orders will appear here"
+                  : "Past orders will be shown here"
+              }
+              actionLabel="Order Now"
+              onAction={() => router.push("/(tabs)")}
+            />
+          ) : (
+            <View style={styles.ordersList}>
+              {filteredOrders.map((order) => (
+                <Pressable
+                  key={order.id}
+                  style={styles.orderCard}
+                  onPress={() => router.push(`/track/${order.id}`)}
+                >
+                  {/* Restaurant Info */}
+                  <View style={styles.restaurantRow}>
+                    <Text style={styles.restaurantEmoji}>🏪</Text>
+                    <Text style={styles.restaurantName}>{order.restaurantName}</Text>
                   </View>
-                  <View style={styles.metaRight}>
-                    <Text style={styles.orderTotal}>₹{order.total.toFixed(2)}</Text>
-                    <Badge
-                      text={getStatusText(order.status)}
-                      color={getStatusColor(order.status)}
-                    />
-                  </View>
-                </View>
 
-                {/* ETA for active orders */}
-                {filter === "active" && order.estimatedDelivery && (
-                  <View style={styles.etaContainer}>
-                    <Text style={styles.etaIcon}>⏱️</Text>
-                    <Text style={styles.etaText}>{getETAText(order)}</Text>
-                  </View>
-                )}
+                  {/* Order Items */}
+                  <Text style={styles.orderItems}>
+                    {order.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}
+                  </Text>
 
-                {/* View Details */}
-                <View style={styles.viewDetails}>
-                  <Text style={styles.viewDetailsText}>View Details →</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                  {/* Order Meta */}
+                  <View style={styles.orderMeta}>
+                    <View style={styles.metaLeft}>
+                      <Text style={styles.orderId}>Order #{order.id.slice(-6).toUpperCase()}</Text>
+                      <Text style={styles.orderDate}>
+                        {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </Text>
+                    </View>
+                    <View style={styles.metaRight}>
+                      <Text style={styles.orderTotal}>₹{order.totalAmount.toFixed(2)}</Text>
+                      <Badge
+                        text={getStatusText(order.status)}
+                        color={getStatusColor(order.status)}
+                      />
+                    </View>
+                  </View>
+
+                  {/* ETA for active orders */}
+                  {filter === "active" && order.estimatedDelivery && (
+                    <View style={styles.etaContainer}>
+                      <Text style={styles.etaIcon}>⏱️</Text>
+                      <Text style={styles.etaText}>{getETAText(order)}</Text>
+                    </View>
+                  )}
+
+                  {/* View Details */}
+                  <View style={styles.viewDetails}>
+                    <Text style={styles.viewDetailsText}>View Details →</Text>
+                  </View>
+                </Pressable>
+              ))}
+              {hasMore && (
+                <Pressable
+                  style={styles.loadMoreButton}
+                  onPress={loadMoreOrders}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#FF4500" />
+                  ) : (
+                    <Text style={styles.loadMoreText}>Load More</Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </ProtectedRoute>
   );
 }
 
@@ -178,6 +283,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF8F0",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
   },
   header: {
     paddingHorizontal: 16,
@@ -222,6 +338,21 @@ const styles = StyleSheet.create({
   ordersList: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+  },
+  loadMoreButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF4500",
   },
   orderCard: {
     backgroundColor: "#FFFFFF",

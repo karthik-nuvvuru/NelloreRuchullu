@@ -20,7 +20,7 @@ class AddressCreate(BaseModel):
     city: str = Field(min_length=1, max_length=100)
     state: str = Field(min_length=1, max_length=100)
     country: str = Field(default="India", max_length=2, min_length=2)
-    pincode: str = Field(min_length=6, max_length=10)
+    pincode: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
     landmark: str | None = None
     latitude: float | None = None
     longitude: float | None = None

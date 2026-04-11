@@ -199,12 +199,13 @@ services:
   playwright:
     build:
       context: .
-      dockerfile: web/Dockerfile.playwright
+      dockerfile: Dockerfile.e2e
     container_name: nellore_playwright
     environment:
       BASE_URL: ${BASE_URL:-http://web:3000}
       API_URL: ${API_URL:-http://backend:8000/api/v1}
       NODE_ENV: test
+      PLAYWRIGHT_SKIP_BASE_URL_VALIDATION: "true"
     depends_on:
       backend:
         condition: service_healthy
@@ -226,7 +227,7 @@ services:
         echo 'Waiting for services...' &&
         sleep 10 &&
         echo 'Running Playwright tests...' &&
-        npx playwright test --reporter=list --trace=on
+        cd web && npx playwright test tests/e2e/ --reporter=list --trace=on
       "
 
 # =============================================================================

@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useUserStore } from "../src/store";
+import { authApi } from "../src/lib/api";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
@@ -21,7 +22,10 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtp, setShowOtp] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; email?: string; otp?: string }>({});
 
   const register = useUserStore((state) => state.register);
 
@@ -34,45 +38,88 @@ export default function RegisterScreen() {
   };
 
   const handleSendOtp = async () => {
-    if (!name.trim()) {
-      Alert.alert("Invalid Name", "Please enter your full name.");
-      return;
-    }
+    const newErrors: { phone?: string; email?: string } = {};
     if (!validatePhone(phone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid 10-digit Indian phone number.");
-      return;
+      newErrors.phone = "Please enter a valid 10-digit Indian phone number.";
     }
     if (!validateEmail(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      newErrors.email = "Please enter a valid email address.";
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
-    setShowOtp(true);
-    Alert.alert("OTP Sent", "OTP has been sent to your phone number.");
+    try {
+      await authApi.requestOtp("+91" + phone);
+      setShowOtp(true);
+      setErrors({});
+    } catch (error) {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
-      Alert.alert("Invalid OTP", "Please enter the 6-digit OTP.");
+      setErrors({ otp: "Please enter the 6-digit OTP." });
       return;
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
+    try {
+      const response = await authApi.verifyOtp("+91" + phone, otp);
+      // Check if user has a valid name (not "User" or empty)
+      if (!response.user.name || response.user.name === "User" || response.user.name === "") {
+        setPendingUser(response.user);
+        setShowNamePrompt(true);
+        setShowOtp(false);
+      } else {
+        register({
+          id: response.user.id,
+          name: response.user.name,
+          email: response.user.email,
+          phone: response.user.phone,
+          language: response.user.language || "en",
+          avatar: response.user.avatar,
+        });
+        router.replace("/(tabs)");
+      }
+    } catch (error) {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to verify OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    register({
-      id: "user_" + Date.now(),
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      phone: "+91" + phone,
-      language: "en",
-    });
+  const handleCompleteRegistration = async () => {
+    if (!name.trim()) {
+      setErrors({ name: "Please enter your name." });
+      return;
+    }
 
-    router.replace("/(tabs)");
+    if (!pendingUser) return;
+
+    setLoading(true);
+    try {
+      // Update profile with the name
+      await authApi.updateProfile({ name: name.trim() });
+      register({
+        id: pendingUser.id,
+        name: name.trim(),
+        email: pendingUser.email,
+        phone: pendingUser.phone,
+        language: pendingUser.language || "en",
+        avatar: pendingUser.avatar,
+      });
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to complete registration");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -100,19 +147,8 @@ export default function RegisterScreen() {
               Sign up to explore authentic Nellore cuisine
             </Text>
 
-            {!showOtp ? (
+            {!showOtp && !showNamePrompt ? (
               <>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Full Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your full name"
-                    keyboardType="default"
-                    value={name}
-                    onChangeText={setName}
-                  />
-                </View>
-
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Phone Number</Text>
                   <View style={styles.phoneInput}>
@@ -122,10 +158,14 @@ export default function RegisterScreen() {
                       placeholder="Enter phone number"
                       keyboardType="phone-pad"
                       value={phone}
-                      onChangeText={setPhone}
+                      onChangeText={(text) => {
+                        setPhone(text);
+                        if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                      }}
                       maxLength={10}
                     />
                   </View>
+                  {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -135,9 +175,13 @@ export default function RegisterScreen() {
                     placeholder="Enter email address"
                     keyboardType="email-address"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                    }}
                     autoCapitalize="none"
                   />
+                  {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
                 </View>
 
                 <Pressable
@@ -155,6 +199,39 @@ export default function RegisterScreen() {
                   </LinearGradient>
                 </Pressable>
               </>
+            ) : showNamePrompt ? (
+              <>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Enter Your Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your full name"
+                    keyboardType="default"
+                    value={name}
+                    onChangeText={(text) => {
+                      setName(text);
+                      if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                    }}
+                    autoFocus
+                  />
+                  {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+                </View>
+
+                <Pressable
+                  onPress={handleCompleteRegistration}
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  disabled={loading}
+                >
+                  <LinearGradient
+                    colors={["#FF4500", "#FF6B35"]}
+                    style={styles.buttonGradient}
+                  >
+                    <Text style={styles.buttonText}>
+                      {loading ? "Completing..." : "Complete Registration"}
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </>
             ) : (
               <>
                 <View style={styles.inputContainer}>
@@ -164,10 +241,14 @@ export default function RegisterScreen() {
                     placeholder="Enter 6-digit OTP"
                     keyboardType="number-pad"
                     value={otp}
-                    onChangeText={setOtp}
+                    onChangeText={(text) => {
+                      setOtp(text);
+                      if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
+                    }}
                     maxLength={6}
                     secureTextEntry
                   />
+                  {errors.otp && <Text style={styles.errorText}>{errors.otp}</Text>}
                   <Pressable onPress={() => setShowOtp(false)}>
                     <Text style={styles.changeNumber}>Change number</Text>
                   </Pressable>
@@ -249,6 +330,11 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginTop: 24,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 14,
+    marginTop: 6,
   },
   label: {
     fontSize: 14,

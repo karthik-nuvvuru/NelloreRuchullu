@@ -30,6 +30,17 @@ class OrderStatus(str, PyEnum):
     CANCELLED = "cancelled"
 
 
+VALID_ORDER_TRANSITIONS = {
+    OrderStatus.PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.CONFIRMED: {OrderStatus.PREPARING, OrderStatus.CANCELLED},
+    OrderStatus.PREPARING: {OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED},
+    OrderStatus.READY_FOR_PICKUP: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED},
+    OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
+    OrderStatus.DELIVERED: set(),
+    OrderStatus.CANCELLED: set(),
+}
+
+
 class Order(Base):
     __tablename__ = "orders"
     __table_args__ = (

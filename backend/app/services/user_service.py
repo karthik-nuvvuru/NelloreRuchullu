@@ -45,8 +45,9 @@ class UserService:
         if not user:
             raise NotFoundError("User not found")
 
+        allowed = {"first_name", "last_name", "avatar_url"}
         for key, value in updates.items():
-            if value is not None and hasattr(user, key):
+            if key in allowed and value is not None:
                 setattr(user, key, value)
 
         await db.flush()

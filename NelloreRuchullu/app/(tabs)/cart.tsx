@@ -13,12 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCartStore } from "../../src/store";
 import { CartItem, Button, EmptyState } from "../../src/components";
-
-const PROMO_CODES = {
-  NRCHULLU30: 30,
-  FREEDELIV: 0,
-  FIRST100: 100,
-};
+import { couponApi } from "../../src/lib/api";
 
 export default function CartScreen() {
   const [promoCode, setPromoCode] = useState("");
@@ -28,20 +23,26 @@ export default function CartScreen() {
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = subtotal > 300 ? 0 : 40;
-  const discount = appliedPromo && PROMO_CODES[appliedPromo as keyof typeof PROMO_CODES]
-    ? PROMO_CODES[appliedPromo as keyof typeof PROMO_CODES]
-    : 0;
-  const discountAmount = discount > 100 ? discount : subtotal * (discount / 100);
+  const discountAmount = appliedPromo ? promoDiscount : 0;
   const total = Math.max(0, subtotal + deliveryFee - discountAmount);
 
-  const handleApplyPromo = () => {
+  const handleApplyPromo = async () => {
     const code = promoCode.toUpperCase().trim();
-    if (PROMO_CODES[code as keyof typeof PROMO_CODES] !== undefined) {
-      setAppliedPromo(code);
-      setPromoDiscount(PROMO_CODES[code as keyof typeof PROMO_CODES]);
-      Alert.alert("Promo Applied!", `${code} has been applied to your order.`);
-    } else {
-      Alert.alert("Invalid Code", "Please enter a valid promo code.");
+    if (!code) {
+      Alert.alert("Error", "Please enter a promo code.");
+      return;
+    }
+    try {
+      const result = await couponApi.validate(code, subtotal);
+      if (result.valid) {
+        setAppliedPromo(code);
+        setPromoDiscount(result.discounted_amount || result.discount_value || 0);
+        Alert.alert("Promo Applied!", result.message || `${code} has been applied to your order.`);
+      } else {
+        Alert.alert("Invalid Coupon", result.message || "Please enter a valid promo code.");
+      }
+    } catch (error) {
+      Alert.alert("Invalid Coupon", "Please enter a valid promo code.");
     }
   };
 
@@ -101,7 +102,7 @@ export default function CartScreen() {
               <View style={styles.appliedPromoInfo}>
                 <Text style={styles.appliedPromoCode}>{appliedPromo}</Text>
                 <Text style={styles.appliedPromoDesc}>
-                  {promoDiscount > 10 ? `₹${promoDiscount} OFF` : `${promoDiscount}% OFF`}
+                  {discountAmount > 10 ? `₹${Math.round(discountAmount)} OFF` : `${Math.round(discountAmount / subtotal * 100)}% OFF`}
                 </Text>
               </View>
               <Pressable onPress={handleRemovePromo}>
@@ -143,7 +144,7 @@ export default function CartScreen() {
               )}
             </Text>
           </View>
-          {discount > 0 && (
+          {discountAmount > 0 && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Discount</Text>
               <Text style={styles.discountValue}>-₹{discountAmount.toFixed(2)}</Text>

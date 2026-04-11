@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # JWT
     secret_key: str = Field(default="change-this-in-production", alias="SECRET_KEY")
     access_token_expire_minutes: int = 15
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
     refresh_token_expire_days: int = 7
     algorithm: str = "HS256"
 
@@ -58,3 +62,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Validate SECRET_KEY in production
+if settings.is_production and settings.secret_key == "change-this-in-production":
+    raise ValueError(
+        "SECRET_KEY must be explicitly set in production environment. "
+        "Set the SECRET_KEY environment variable to a secure random value."
+    )

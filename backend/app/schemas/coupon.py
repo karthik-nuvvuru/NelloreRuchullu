@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CouponType(StrEnum):
@@ -26,6 +26,18 @@ class CouponCreate(BaseModel):
     valid_from: datetime
     valid_until: datetime
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def validate_discount_value(self):
+        if self.discount_type == CouponType.PERCENTAGE and self.discount_value > 100:
+            raise ValueError("Percentage discount cannot exceed 100")
+        return self
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.valid_until and self.valid_from and self.valid_until <= self.valid_from:
+            raise ValueError("valid_until must be after valid_from")
+        return self
 
 
 class CouponUpdate(BaseModel):

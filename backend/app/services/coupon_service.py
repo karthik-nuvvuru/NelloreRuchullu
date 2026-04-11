@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update as sql_update
 
 from app.config import settings
 from app.core.redis_client import RedisClient
@@ -117,12 +117,24 @@ class CouponService:
         await db.flush()
 
     async def apply_coupon(self, db, code: str) -> Coupon:
+        # Atomic increment with limit check using UPDATE ... WHERE
         result = await db.execute(
+            sql_update(Coupon)
+            .where(
+                Coupon.code == code.upper(),
+                Coupon.is_active == True,
+                (Coupon.usage_limit.is_(None)) | (Coupon.used_count < Coupon.usage_limit)
+            )
+            .values(used_count=Coupon.used_count + 1)
+            .returning(Coupon.id, Coupon.code, Coupon.used_count)
+        )
+        row = result.fetchone()
+        if not row:
+            # Coupon doesn't exist or limit reached
+            raise ValidationErrorException("Coupon not found or usage limit reached")
+        await db.flush()
+        # Re-fetch full object
+        result2 = await db.execute(
             select(Coupon).where(Coupon.code == code.upper())
         )
-        coupon = result.scalar_one_or_none()
-        if not coupon:
-            raise NotFoundError("Coupon not found")
-        coupon.used_count += 1
-        await db.flush()
-        return coupon
+        return result2.scalar_one()

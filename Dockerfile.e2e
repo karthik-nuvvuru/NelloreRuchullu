@@ -1,0 +1,35 @@
+# =============================================================================
+# Playwright Dockerfile - E2E Test Runner (Project Root)
+# =============================================================================
+
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
+
+WORKDIR /app
+
+# Note: Microsoft Playwright image already includes browser binaries
+
+# Copy root package.json for workspace
+COPY package.json package-lock.json* ./
+
+# Copy web tests and config
+COPY web/tests/ ./web/tests/
+COPY web/playwright.config.ts ./web/playwright.config.ts
+COPY web/package.json web/package-lock.json* ./web/
+
+# Copy mobile app tests and config
+COPY NelloreRuchullu/tests/ ./mobile_tests/
+COPY NelloreRuchullu/playwright.config.ts ./mobile_tests/playwright.config.ts
+COPY NelloreRuchullu/package.json ./mobile_tests/
+
+# Install dependencies for web
+RUN npm ci
+
+# Create output directories
+RUN mkdir -p tests/screenshots tests/videos tests/report
+
+# Set environment variables
+ENV BASE_URL=http://web:3000
+ENV API_URL=http://backend:8000/api/v1
+ENV NODE_ENV=test
+
+CMD ["npx", "playwright", "test", "--reporter=list"]

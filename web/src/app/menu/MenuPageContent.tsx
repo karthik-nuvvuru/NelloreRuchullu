@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useCart } from "@/hooks/useCart";
 import { SkeletonMenuGrid } from "@/components/SkeletonLoader";
 
@@ -16,24 +16,27 @@ export default function MenuPageContent() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const { addItem, itemCount: cartCount } = useCart();
 
   useEffect(() => {
     setLoading(true);
-    // Build URL with category_name parameter for backend filtering
-    let url = `${API_BASE}/menu?per_page=50`;
+    // Build params for backend filtering
+    const params: Record<string, string | number | boolean | undefined> = { per_page: 50 };
     if (categoryParam) {
-      url += `&category_name=${encodeURIComponent(categoryParam)}`;
+      params.category_name = categoryParam;
     }
     Promise.all([
-      fetch(`${API_BASE}/menu/categories`).then(r => r.json()).catch(() => []),
-      fetch(url).then(r => r.json()).then(d => d?.items || []).catch(() => []),
-    ]).then(([cats, items]) => {
+      apiFetch<Category[]>('/menu/categories'),
+      apiFetch<{ items: MenuItem[] }>('/menu', { params }),
+    ]).then(([cats, menuData]) => {
       setCategoriesList(Array.isArray(cats) ? cats : []);
-      setMenuItems(Array.isArray(items) ? items : []);
+      setMenuItems(Array.isArray(menuData?.items) ? menuData.items : []);
+      setError(null);
     }).catch(() => {
+      setError("Failed to load menu. Please refresh.");
       setCategoriesList([]);
       setMenuItems([]);
     }).finally(() => setLoading(false));
@@ -45,7 +48,7 @@ export default function MenuPageContent() {
       name: item.name,
       description: item.description || '',
       price: parseFloat(String(item.price)) || 0,
-      category: item.category_name || item.category || '',
+      category: item.category_name || '',
       image: item.image_url || '',
       isVegetarian: item.is_vegetarian,
       isAvailable: item.is_available ?? true,
@@ -81,9 +84,9 @@ export default function MenuPageContent() {
               </div>
             </div>
           </aside>
-          <main className="flex-1">
+          <div className="flex-1">
             <SkeletonMenuGrid count={6} />
-          </main>
+          </div>
         </div>
       </div>
     );
@@ -91,6 +94,12 @@ export default function MenuPageContent() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex justify-between items-center mb-4">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="font-bold hover:text-red-900">×</button>
+        </div>
+      )}
       <h1 className="text-3xl font-bold mb-6">Our Menu</h1>
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar Filters */}
@@ -139,12 +148,18 @@ export default function MenuPageContent() {
           </div>
         </aside>
         {/* Menu Grid */}
-        <main className="flex-1">
+        <div className="flex-1" role="region" aria-label="Menu items">
           {filtered.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-5xl mb-4">🍽️</div>
-              <p className="text-gray-400 text-lg">No items found</p>
-              {search && <button onClick={() => setSearch("")} className="text-orange-600 hover:underline mt-2">Clear search</button>}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <p className="text-gray-400 text-lg mb-4">No items found</p>
+              {(search || vegOnly || categoryParam) && (
+                <button onClick={() => { setSearch(""); setVegOnly(false); }} className="inline-flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors">
+                  <span>Clear filters</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -186,7 +201,7 @@ export default function MenuPageContent() {
               <Link href="/cart" className="font-medium">{cartCount} item{cartCount > 1 ? "s" : ""} in cart →</Link>
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

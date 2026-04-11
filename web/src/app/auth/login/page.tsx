@@ -15,9 +15,22 @@ export default function LoginPage() {
   const [otpPhone, setOtpPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ emailOrPhone?: string; otpPhone?: string }>({});
+
+  const validateEmailOrPhone = (val: string): string | undefined => {
+    if (!val) return undefined;
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRe = /^\+?[\d\s-]{10,}$/;
+    if (emailRe.test(val)) return undefined;
+    if (phoneRe.test(val.replace(/\s/g, ""))) return undefined;
+    return "Enter a valid email or phone (10+ digits)";
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const err = validateEmailOrPhone(emailOrPhone);
+    if (err) { setFieldErrors({ emailOrPhone: err }); return; }
+    setFieldErrors({});
     setLoading(true);
     setError("");
     try {
@@ -90,6 +103,7 @@ export default function LoginPage() {
               <input type="text" value={emailOrPhone} onChange={(e) => setEmailOrPhone(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 placeholder="email@example.com or +91..." required data-testid="input-email-or-phone" />
+              {fieldErrors.emailOrPhone && <p className="text-red-500 text-sm mt-1">{fieldErrors.emailOrPhone}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Password</label>
@@ -110,6 +124,9 @@ export default function LoginPage() {
               <input type="tel" value={otpPhone} onChange={(e) => setOtpPhone(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 placeholder="+919999999999" required disabled={otpSent} data-testid="input-phone" />
+              {otpSent && (
+                <button type="button" onClick={() => { setOtpSent(false); setOtpCode(""); }} className="text-sm text-orange-600 hover:underline mt-1">Edit phone number</button>
+              )}
             </div>
             {otpSent && (
               <div>

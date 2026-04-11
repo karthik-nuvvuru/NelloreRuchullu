@@ -215,6 +215,49 @@ export const deliveryApi = {
   track: (orderId: string) => apiFetch<DeliveryTrackResponse>(`/delivery/track/${orderId}`),
 };
 
+// Restaurant API
+export const restaurantApi = {
+  getAll: (params?: { cuisine?: string; vegetarian?: boolean; page?: number; limit?: number }) => {
+    const searchParams: Record<string, string | number | boolean | undefined> = {};
+    if (params?.cuisine) searchParams.cuisine = params.cuisine;
+    if (params?.vegetarian !== undefined) searchParams.vegetarian = params.vegetarian;
+    if (params?.page) searchParams.page = params.page;
+    if (params?.limit) searchParams.limit = params.limit;
+    return apiFetch<{ restaurants: Restaurant[]; total: number; page: number; limit: number }>("/restaurants", { params: searchParams });
+  },
+
+  getById: (id: string) => apiFetch<Restaurant>(`/restaurants/${id}`),
+};
+
+// Notification API
+export const notificationApi = {
+  getAll: () => apiFetch<{ notifications: Notification[] }>("/notifications"),
+};
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  cuisine: string[];
+  priceRange?: string;
+  isVeg?: boolean;
+  offer?: string;
+  distance?: string;
+  address?: string;
+  timings?: string;
+}
+
+export interface Notification {
+  id: string;
+  type: "promo" | "order" | "info";
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
 // Types
 export interface User {
   id: string;

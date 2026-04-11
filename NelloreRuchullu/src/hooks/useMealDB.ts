@@ -1,6 +1,6 @@
 // Meal/Hotel hooks using real NelloreRuchullu backend
 import { useState, useEffect, useCallback } from "react";
-import { menuApi, fetchCategories as getCategories } from "../lib/api";
+import { menuApi } from "../lib/api";
 import type { MenuItem } from "../lib/api";
 
 // Fetch meals by category from real backend

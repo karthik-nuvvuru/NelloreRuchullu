@@ -88,10 +88,16 @@ async def get_cart_service() -> AsyncGenerator[CartService, None]:
 
 async def get_order_service() -> AsyncGenerator[OrderService, None]:
     from app.services.order_service import OrderService
+    from app.services.coupon_service import CouponService
+    from app.services.payment_service import PaymentService
 
+    coupon_service = CouponService(redis_client=get_redis_client())
+    payment_service = PaymentService()
     service = OrderService(
         redis_client=get_redis_client(),
         ws_manager=get_connection_manager(),
+        coupon_service=coupon_service,
+        payment_service=payment_service,
     )
     try:
         yield service

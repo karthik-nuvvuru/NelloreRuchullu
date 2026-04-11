@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
-import { Link } from "expo-router";
+import { View, Text, StyleSheet, Animated, Pressable } from "react-native";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
 export default function SplashScreen() {
@@ -54,7 +54,9 @@ export default function SplashScreen() {
       </Animated.View>
 
       {/* Auto-navigate to onboarding after 2.5 seconds */}
-      <Link href="/onboarding" style={styles.skipLink} />
+      <Pressable onPress={() => router.replace("/onboarding")} style={styles.skipLink}>
+        <Text style={styles.skipLinkText}>Skip</Text>
+      </Pressable>
     </LinearGradient>
   );
 }
@@ -120,5 +122,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 60,
     right: 20,
+  },
+  skipLinkText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });

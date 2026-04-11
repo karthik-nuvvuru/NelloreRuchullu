@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { apiFetch, API_BASE } from "@/lib/api";
+import { getToken, getUser } from "@/lib/auth";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -14,10 +14,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!token) { router.push("/auth/login"); return; }
+    const user = getUser();
+    if (user?.role !== "admin") {
+      alert("Access denied: Admin only");
+      router.push("/");
+      return;
+    }
     Promise.all([
-      fetch(`${API_BASE}/analytics/overview`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch(`${API_BASE}/analytics/popular-items`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch(`${API_BASE}/orders?per_page=5`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      apiFetch<any>('/analytics/overview', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch<any>('/analytics/popular-items', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch<any>('/orders', { params: { per_page: 5 }, headers: { Authorization: `Bearer ${token}` } }),
     ]).then(([overview, popular, ordersData]) => {
       setStats(overview);
       setPopularItems(popular || []);
@@ -30,7 +36,7 @@ export default function DashboardPage() {
   const statCards = [
     { label: "Total Orders", value: stats.total_orders || 0, icon: "📦", color: "bg-blue-500" },
     { label: "Active Orders", value: stats.active_orders || 0, icon: "🔵", color: "bg-orange-500" },
-    { label: "Total Revenue", value: `₹${stats.total_revenue?.toFixed(0) || 0}`, icon: "💰", color: "bg-green-500" },
+    { label: "Total Revenue", value: `₹${stats.total_revenue != null ? stats.total_revenue.toFixed(0) : 0}`, icon: "💰", color: "bg-green-500" },
     { label: "Total Users", value: stats.total_users || 0, icon: "👥", color: "bg-purple-500" },
   ];
 

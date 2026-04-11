@@ -1,27 +1,39 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
-import { API_BASE } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { apiFetch, API_BASE } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 const STATUS_STEPS = ["pending", "confirmed", "preparing", "ready_for_pickup", "out_for_delivery", "delivered"];
 
 export default function OrderTrackingPage() {
   const params = useParams();
+  const router = useRouter();
   const [order, setOrder] = useState<any>(null);
   const [wsStatus, setWsStatus] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const token = getToken();
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API_BASE}/orders/${params.id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => { setOrder(d); setWsStatus(d.status); }).finally(() => setLoading(false));
+    const token = getToken();
+    if (!token) { router.push("/auth/login"); return; }
+    apiFetch<any>(`/orders/${params.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((d) => { setOrder(d); setWsStatus(d.status); })
+      .catch(() => setOrder(null))
+      .finally(() => setLoading(false));
 
-    // Backend route is at /api/v1/ws/ws/orders/{id} (double ws due to router prefix + path prefix)
-    const wsUrl = `${API_BASE.replace("http", "ws")}/ws/ws/orders/${params.id}?token=${token}`;
+    // Build WebSocket URL with correct protocol (wss for https, ws for http)
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Strip /api/v1 prefix and construct ws path: /ws/orders/{id}
+    const apiUrl = new URL(API_BASE);
+    const wsUrl = `${wsProtocol}//${apiUrl.host}/ws/orders/${params.id}`;
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      // Send auth token via subprotocol
+      ws.send(JSON.stringify({ token }));
+    };
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "order_update" && data.status) {
@@ -31,7 +43,7 @@ export default function OrderTrackingPage() {
     };
     wsRef.current = ws;
     return () => ws.close();
-  }, [params.id, token]);
+  }, [params.id, router]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" /></div>;
   if (!order) return <div className="text-center py-20 text-gray-400">Order not found</div>;

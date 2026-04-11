@@ -1,8 +1,19 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { notificationApi } from "../src/lib/api";
 
-const NOTIFICATIONS = [
+interface NotificationItem {
+  id: string;
+  type: "promo" | "order" | "info";
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
+const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "1",
     type: "promo",
@@ -46,6 +57,43 @@ const NOTIFICATIONS = [
 ];
 
 export default function NotificationsScreen() {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await notificationApi.getAll();
+        setNotifications(result.notifications);
+      } catch (err) {
+        setError("Failed to load notifications");
+        setNotifications(DEFAULT_NOTIFICATIONS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backText}>← Back</Text>
+          </Pressable>
+          <Text style={styles.title}>Notifications 🔔</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF4500" />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -57,28 +105,68 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {NOTIFICATIONS.map((notification) => (
-          <View
-            key={notification.id}
-            style={[
-              styles.notificationCard,
-              !notification.read && styles.notificationUnread,
-            ]}
-          >
-            <View style={styles.notificationHeader}>
-              <Text style={styles.notificationTitle}>{notification.title}</Text>
-              {!notification.read && <View style={styles.unreadDot} />}
-            </View>
-            <Text style={styles.notificationMessage}>{notification.message}</Text>
-            <Text style={styles.notificationTime}>{notification.time}</Text>
+        {notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔔</Text>
+            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={styles.emptySubtitle}>
+              You'll see updates about your orders and promotions here
+            </Text>
           </View>
-        ))}
+        ) : (
+          notifications.map((notification) => (
+            <View
+              key={notification.id}
+              style={[
+                styles.notificationCard,
+                !notification.read && styles.notificationUnread,
+              ]}
+            >
+              <View style={styles.notificationHeader}>
+                <Text style={styles.notificationTitle}>{notification.title}</Text>
+                {!notification.read && <View style={styles.unreadDot} />}
+              </View>
+              <Text style={styles.notificationMessage}>{notification.message}</Text>
+              <Text style={styles.notificationTime}>{notification.time}</Text>
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 12,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
   container: {
     flex: 1,
     backgroundColor: "#FFF8F0",
