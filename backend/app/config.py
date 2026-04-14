@@ -1,5 +1,5 @@
 import json
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,20 @@ class Settings(BaseSettings):
 
     # Frontend
     frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+
+    # CORS (JSON array as string - parsed at runtime via property)
+    cors_origins_raw: str = Field(default="", alias="CORS_ORIGINS")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse CORS_ORIGINS from JSON string."""
+        raw = self.cors_origins_raw
+        if not raw:
+            return ["http://localhost:3000"]
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return ["http://localhost:3000"]
 
     # Rate limiting
     rate_limit_per_minute: int = Field(default=30)
