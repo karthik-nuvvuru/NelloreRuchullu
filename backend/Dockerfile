@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Stage 2: Dependencies
 FROM base AS deps
 
-COPY requirements.txt .
+COPY app/backend/requirements.txt .
 
 # Install build dependencies for psycopg2-binary fallback
 RUN apt-get update && apt-get install -y --no-install-recommends \
