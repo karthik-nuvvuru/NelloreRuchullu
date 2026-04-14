@@ -9,8 +9,17 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
+# Ensure async driver prefix for create_async_engine
+_db_url = settings.database_url
+if _db_url and not _db_url.startswith("postgresql+"):
+    # Strip existing prefix if any
+    if _db_url.startswith("postgresql://"):
+        _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif _db_url.startswith("postgres://"):
+        _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
 engine = create_async_engine(
-    settings.database_url,
+    _db_url,
     pool_size=20,
     max_overflow=10,
     pool_timeout=30,
