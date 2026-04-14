@@ -52,4 +52,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run with gunicorn for production
-CMD ["sh", "-c", "alembic upgrade head && python -m app.scripts.seed && gunicorn app.main:app --bind 0.0.0.0:8000 --workers 4 --worker-class uvicorn.workers.UvicornWorker --threads 2 --timeout 120 --keep-alive 5"]
+CMD ["sh", "-c", "alembic -c backend/alembic.ini upgrade head && python -m app.scripts.seed && gunicorn app.main:app --bind 0.0.0.0:8000 --workers 4 --worker-class uvicorn.workers.UvicornWorker --threads 2 --timeout 120 --keep-alive 5"]
