@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getToken } from '@/lib/auth';
 import type { OrderStatus, TrackingEvent } from '@/types';
 
 export interface WebSocketState<T> {
@@ -110,11 +111,31 @@ export function useOrderWebSocket(orderId: string) {
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | null>(null);
   const [eta, setEta] = useState<number | null>(null);
 
-  // Backend route is at /api/v1/ws/ws/orders/{id} (double ws due to router prefix + path prefix)
-  const wsUrl =
-    orderId && typeof window !== 'undefined'
-      ? `ws://${window.location.hostname}:8000/api/v1/ws/ws/orders/${orderId}`
-      : null;
+  const wsUrl = (() => {
+    if (!orderId || typeof window === 'undefined') {
+      return null;
+    }
+
+    const token = getToken();
+    if (!token) {
+      return null;
+    }
+
+    const configuredBase = process.env.NEXT_PUBLIC_WS_URL;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const originBase = `${protocol}//${window.location.host}`;
+    const basePath = configuredBase || '/api/v1';
+    const normalizedBase =
+      basePath.startsWith('ws://') || basePath.startsWith('wss://')
+        ? basePath
+        : basePath.startsWith('http://') || basePath.startsWith('https://')
+          ? basePath.replace(/^http/, 'ws')
+          : `${originBase}${basePath}`;
+
+    const url = new URL(`${normalizedBase}/ws/orders/${orderId}`);
+    url.searchParams.set('token', token);
+    return url.toString();
+  })();
 
   const handleMessage = useCallback(
     (message: any) => {

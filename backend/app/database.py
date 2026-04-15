@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -18,14 +18,23 @@ if _db_url and not _db_url.startswith("postgresql+"):
     elif _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(
-    _db_url,
-    pool_size=20,
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800,
-    echo=settings.debug,
-)
+engine_kwargs: dict[str, Any] = {
+    "echo": settings.debug,
+}
+
+if _db_url.startswith("sqlite+"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs.update(
+        {
+            "pool_size": 20,
+            "max_overflow": 10,
+            "pool_timeout": 30,
+            "pool_recycle": 1800,
+        }
+    )
+
+engine = create_async_engine(_db_url, **engine_kwargs)
 
 async_session_factory = async_sessionmaker(
     engine,
@@ -50,6 +59,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Create all tables. Used for development/testing only."""
+    import app.models  # noqa: F401
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

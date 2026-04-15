@@ -1,0 +1,15 @@
+.git
+.github
+.DS_Store
+.claude
+node_modules
+web/node_modules
+web/.next
+web/test-results
+backend/__pycache__
+backend/.pytest_cache
+backend/tests/test.sqlite3
+NelloreRuchullu
+tests
+docs
+*.log

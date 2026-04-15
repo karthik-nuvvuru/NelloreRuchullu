@@ -1,6 +1,18 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+function getApiBase(): string {
+  const configuredBase = process.env.NEXT_PUBLIC_API_URL;
 
-const API_BASE_URL = API_BASE;
+  if (configuredBase) {
+    return configuredBase;
+  }
+
+  if (typeof window !== 'undefined') {
+    return '/api/v1';
+  }
+
+  return 'http://127.0.0.1:8000/api/v1';
+}
+
+export const API_BASE = getApiBase();
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 3;
@@ -36,7 +48,11 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { params, headers: customHeaders, timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES, ...restOptions } = options;
 
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const requestPath = `${API_BASE}${path}`;
+  const url =
+    typeof window === 'undefined'
+      ? new URL(requestPath)
+      : new URL(requestPath, window.location.origin);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

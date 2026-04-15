@@ -1,0 +1,77 @@
+# =============================================================================
+# NelloreRuchullu Docker Compose - Single App Image
+# Web, API, and NGINX run in one container image.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nelloreruchullu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nelloreruchullu_secret_2024}
+      POSTGRES_DB: ${POSTGRES_DB:-nelloreruchullu}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_single_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nelloreruchullu} -d ${POSTGRES_DB:-nelloreruchullu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - nellore_single_network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_single_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nellore_single_network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      API_PREFIX: ${API_PREFIX:-/api/v1}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost","http://127.0.0.1"]}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      SEED_ON_START: ${SEED_ON_START:-true}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - nellore_single_network
+    restart: unless-stopped
+
+networks:
+  nellore_single_network:
+    driver: bridge
+
+volumes:
+  postgres_single_data:
+  redis_single_data:
