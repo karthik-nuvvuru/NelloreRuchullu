@@ -67,3 +67,5 @@ backend/uploads/
 *.tmp
 *.temp
 Thumbs.db
+
+.claude

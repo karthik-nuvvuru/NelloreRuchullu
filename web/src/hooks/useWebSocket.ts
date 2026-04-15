@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getToken } from '@/lib/auth';
 import type { OrderStatus, TrackingEvent } from '@/types';
 
@@ -111,7 +111,7 @@ export function useOrderWebSocket(orderId: string) {
   const [currentStatus, setCurrentStatus] = useState<OrderStatus | null>(null);
   const [eta, setEta] = useState<number | null>(null);
 
-  const wsUrl = (() => {
+  const wsUrl = useMemo(() => {
     if (!orderId || typeof window === 'undefined') {
       return null;
     }
@@ -135,7 +135,7 @@ export function useOrderWebSocket(orderId: string) {
     const url = new URL(`${normalizedBase}/ws/orders/${orderId}`);
     url.searchParams.set('token', token);
     return url.toString();
-  })();
+  }, [orderId]);
 
   const handleMessage = useCallback(
     (message: any) => {

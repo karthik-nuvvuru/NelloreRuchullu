@@ -1,6 +1,6 @@
 # =============================================================================
 # NelloreRuchullu Docker Compose - Production Stack
-# Uses external Supabase PostgreSQL + Redis Cloud from .env.production
+# Uses external Supabase PostgreSQL + Redis Cloud from .env
 # =============================================================================
 
 services:
@@ -14,26 +14,9 @@ services:
       target: production
     container_name: nellore_backend
     env_file:
-      - .env.production
+      - .env
     extra_hosts:
       - "db.txezwqzxghcebvqhjoba.supabase.co:2406:da14:271:9913:89e4:a632:73d:a839"
-    environment:
-      # App
-      APP_NAME: NelloreRuchullu API
-      VERSION: "1.0.0"
-      ENVIRONMENT: production
-      DEBUG: "false"
-      API_PREFIX: /api/v1
-      # Database - ensure asyncpg prefix
-      DATABASE_URL: postgresql+asyncpg://postgres:fb4689526ef707181ebf@db.txezwqzxghcebvqhjoba.supabase.co:5432/postgres
-      # Redis
-      REDIS_URL: redis://default:TKLNoFoCgsL7lcSTcipAc5Qe3984at2u@redis-19617.c301.ap-south-1-1.ec2.cloud.redislabs.com:19617
-      # Security
-      SECRET_KEY: fb4689526ef707181ebf1a4e1dd5de9dbb239bd0c386f210c20fd2fc570e6324
-      # CORS - localhost for local testing
-      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
-      # Frontend URL
-      FRONTEND_URL: http://localhost:3000
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
@@ -56,14 +39,9 @@ services:
     container_name: nellore_celery
     command: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=4
     env_file:
-      - .env.production
+      - .env
     extra_hosts:
       - "db.txezwqzxghcebvqhjoba.supabase.co:2406:da14:271:9913:89e4:a632:73d:a839"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:fb4689526ef707181ebf@db.txezwqzxghcebvqhjoba.supabase.co:5432/postgres
-      REDIS_URL: redis://default:TKLNoFoCgsL7lcSTcipAc5Qe3984at2u@redis-19617.c301.ap-south-1-1.ec2.cloud.redislabs.com:19617
-      SECRET_KEY: fb4689526ef707181ebf1a4e1dd5de9dbb239bd0c386f210c20fd2fc570e6324
-      ENVIRONMENT: production
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.celery_app.celery_app inspect ping -d celery@$$HOSTNAME >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -82,12 +60,11 @@ services:
       context: ./web
       dockerfile: Dockerfile
     container_name: nellore_frontend
+    env_file:
+      - .env
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
-      NEXT_PUBLIC_API_URL: /api/v1
-      NEXT_PUBLIC_WS_URL: /api/v1
-      NEXT_PUBLIC_CDN_URL: ""
       NODE_ENV: production
     ports:
       - "${FRONTEND_PORT:-3000}:3000"

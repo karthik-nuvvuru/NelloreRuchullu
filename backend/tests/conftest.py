@@ -35,16 +35,14 @@ TestSessionFactory = async_sessionmaker(test_engine, class_=AsyncSession, expire
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Provide a test database session with rollback after each test."""
-    if TEST_DB_PATH.exists():
-        TEST_DB_PATH.unlink()
+    TEST_DB_PATH.unlink(missing_ok=True)
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with TestSessionFactory() as session:
         yield session
         await session.rollback()
     await test_engine.dispose()
-    if TEST_DB_PATH.exists():
-        TEST_DB_PATH.unlink()
+    TEST_DB_PATH.unlink(missing_ok=True)
 
 
 @pytest_asyncio.fixture

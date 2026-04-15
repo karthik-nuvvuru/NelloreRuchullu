@@ -1,14 +1,5 @@
 FROM node:22-bookworm-slim AS node-runtime
 
-FROM node:22-bookworm-slim AS web-builder
-WORKDIR /app
-
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
-
-COPY web/ ./
-RUN npm run build
-
 FROM python:3.12-slim AS backend-deps
 WORKDIR /app
 
@@ -52,9 +43,9 @@ COPY --from=backend-deps /usr/local/lib/python3.12/site-packages /usr/local/lib/
 COPY --from=backend-deps /usr/local/bin /usr/local/bin
 
 COPY backend/ /srv/backend/
-COPY --from=web-builder /app/web/.next/standalone/app/ /srv/web/
-COPY --from=web-builder /app/web/.next/static /srv/web/.next/static
-COPY --from=web-builder /app/web/public /srv/web/public
+COPY web/.next/standalone/web/ /srv/web/
+COPY web/.next/static/ /srv/web/.next/static/
+COPY web/public/ /srv/web/public/
 COPY infra/nginx/nginx.single.conf /etc/nginx/nginx.conf
 COPY infra/supervisor/supervisord.single.conf /etc/supervisor/conf.d/supervisord.conf
 COPY infra/docker/entrypoint.single.sh /usr/local/bin/entrypoint-single.sh
