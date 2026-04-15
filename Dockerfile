@@ -52,9 +52,9 @@ COPY --from=backend-deps /usr/local/lib/python3.12/site-packages /usr/local/lib/
 COPY --from=backend-deps /usr/local/bin /usr/local/bin
 
 COPY backend/ /srv/backend/
-COPY --from=web-builder /app/.next/standalone/app/ /srv/web/
-COPY --from=web-builder /app/.next/static /srv/web/.next/static
-COPY --from=web-builder /app/public /srv/web/public
+COPY --from=web-builder /app/web/.next/standalone/app/ /srv/web/
+COPY --from=web-builder /app/web/.next/static /srv/web/.next/static
+COPY --from=web-builder /app/web/public /srv/web/public
 COPY infra/nginx/nginx.single.conf /etc/nginx/nginx.conf
 COPY infra/supervisor/supervisord.single.conf /etc/supervisor/conf.d/supervisord.conf
 COPY infra/docker/entrypoint.single.sh /usr/local/bin/entrypoint-single.sh
