@@ -1,4 +1,11 @@
-FROM node:22-bookworm-slim AS node-runtime
+FROM node:22-bookworm-slim AS web-builder
+WORKDIR /app
+
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+COPY web/ ./
+RUN npm run build
 
 FROM python:3.12-slim AS backend-deps
 WORKDIR /app
@@ -38,14 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd -m -u 1000 appuser \
     && mkdir -p /run/nginx /var/log/supervisor /srv/backend /srv/web
 
-COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=backend-deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=backend-deps /usr/local/bin /usr/local/bin
 
 COPY backend/ /srv/backend/
-COPY web/.next/standalone/web/ /srv/web/
-COPY web/.next/static/ /srv/web/.next/static/
-COPY web/public/ /srv/web/public/
+COPY --from=web-builder /app/web/.next/standalone/web/ /srv/web/
+COPY --from=web-builder /app/web/.next/static /srv/web/.next/static
+COPY --from=web-builder /app/web/public /srv/web/public
 COPY infra/nginx/nginx.single.conf /etc/nginx/nginx.conf
 COPY infra/supervisor/supervisord.single.conf /etc/supervisor/conf.d/supervisord.conf
 COPY infra/docker/entrypoint.single.sh /usr/local/bin/entrypoint-single.sh
