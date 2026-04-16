@@ -53,7 +53,7 @@ COPY --from=web_builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY backend/ /srv/backend/
 COPY --from=web_builder /app/.next/standalone/app/ /srv/web/
 COPY --from=web_builder /app/.next/static /srv/web/.next/static
-COPY --from=web_builder /app/web/public /srv/web/public/
+COPY web/public/ /srv/web/public/
 COPY infra/nginx/nginx.single.conf /etc/nginx/nginx.conf
 COPY infra/supervisor/supervisord.single.conf /etc/supervisor/conf.d/supervisord.conf
 COPY infra/docker/entrypoint.single.sh /usr/local/bin/entrypoint-single.sh
