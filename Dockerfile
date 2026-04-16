@@ -47,6 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=backend-deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=backend-deps /usr/local/bin /usr/local/bin
+COPY --from=web_builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=web_builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 
 COPY backend/ /srv/backend/
 COPY --from=web_builder /app/.next/standalone/app/ /srv/web/
